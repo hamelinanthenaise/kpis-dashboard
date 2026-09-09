@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard KPIs Acasi</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f6fa; color: #1a1a2e; font-size: 14px; }
+
+/* Upload */
+#upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 24px; padding: 40px; }
+.upload-title { font-size: 24px; font-weight: 700; }
+.upload-subtitle { color: #6b7280; font-size: 15px; text-align: center; }
+.upload-cards { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.upload-card { background: white; border: 2px dashed #d1d5db; border-radius: 12px; padding: 24px 32px; text-align: center; cursor: pointer; transition: all .2s; min-width: 220px; max-width: 240px; }
+.upload-card:hover, .upload-card.dragover { border-color: #6366f1; background: #f5f3ff; }
+.upload-card.loaded { border-color: #10b981; border-style: solid; background: #f0fdf4; }
+.upload-card .icon { font-size: 32px; margin-bottom: 10px; }
+.upload-card .label { font-weight: 600; font-size: 14px; color: #374151; }
+.upload-card .sublabel { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+.upload-card .file-name { font-size: 11px; color: #10b981; margin-top: 8px; font-weight: 600; word-break: break-all; }
+.btn-go { background: #6366f1; color: white; border: none; padding: 14px 40px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.btn-go:hover { background: #4f46e5; }
+.btn-go:disabled { background: #d1d5db; cursor: not-allowed; }
+input[type=file] { display: none; }
+
+/* Layout */
+#dashboard { display: none; }
+.header { background: white; border-bottom: 1px solid #e5e7eb; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.header-title { font-size: 17px; font-weight: 700; }
+.pill { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; color: white; }
+.pill-cur { background: #6366f1; }
+.pill-prev { background: #9ca3af; }
+.update-date { font-size: 11px; color: #9ca3af; }
+.btn-sm { background: none; border: 1px solid #d1d5db; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; color: #6b7280; }
+.btn-sm:hover { background: #f9fafb; }
+.tabs { display: flex; gap: 0; background: white; border-bottom: 1px solid #e5e7eb; padding: 0 24px; position: sticky; top: 53px; z-index: 99; overflow-x: auto; }
+.tab { padding: 12px 18px; cursor: pointer; font-size: 13px; font-weight: 500; color: #6b7280; border-bottom: 3px solid transparent; white-space: nowrap; }
+.tab:hover { color: #374151; }
+.tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+.badge-tab { background: #fef2f2; color: #ef4444; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 5px; }
+.content { padding: 20px 24px; }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* Cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.card { background: white; border-radius: 10px; padding: 18px; border-left: 4px solid #e5e7eb; }
+.card.green { border-left-color: #10b981; }
+.card.red { border-left-color: #ef4444; }
+.card.orange { border-left-color: #f59e0b; }
+.card.blue { border-left-color: #6366f1; }
+.card-value { font-size: 30px; font-weight: 700; line-height: 1; }
+.card-label { font-size: 11px; color: #6b7280; margin-top: 5px; }
+.card-delta { font-size: 11px; margin-top: 3px; }
+.up { color: #ef4444; } .dn { color: #10b981; } .eq { color: #9ca3af; }
+
+/* Charts */
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+.chart-box { background: white; border-radius: 10px; padding: 18px; }
+.chart-title { font-weight: 600; font-size: 13px; margin-bottom: 14px; color: #374151; }
+canvas { max-height: 260px; }
+
+/* Tables */
+.tbl-wrap { background: white; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+.tbl-head { padding: 14px 18px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tbl-title { font-weight: 600; font-size: 14px; }
+.tbl-sub { font-size: 12px; color: #9ca3af; }
+table { width: 100%; border-collapse: collapse; }
+th { background: #f9fafb; padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; white-space: nowrap; user-select: none; }
+th:hover { background: #f3f4f6; }
+td { padding: 9px 14px; border-top: 1px solid #f3f4f6; font-size: 13px; }
+tr:hover td { background: #fafafa; }
+
+/* Badges */
+.b-crit { background: #fef2f2; color: #ef4444; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.b-warn { background: #fff7ed; color: #f59e0b; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.b-ok { background: #f0fdf4; color: #10b981; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.b-persist { background: #fef2f2; color: #dc2626; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid #fca5a5; }
+.squad-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.link { color: #6366f1; text-decoration: none; font-size: 11px; }
+.link:hover { text-decoration: underline; }
+
+/* Squads */
+.squad-section { margin-bottom: 20px; }
+.squad-header { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 10px 10px 0 0; color: white; font-weight: 600; font-size: 14px; cursor: pointer; }
+.squad-header .squad-meta { margin-left: auto; font-size: 12px; opacity: .85; }
+.squad-body { background: white; border-radius: 0 0 10px 10px; overflow: hidden; }
+
+/* Alerts */
+.alert-group { margin-bottom: 20px; }
+.alert-group-title { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.alert-cnt { background: #fef2f2; color: #ef4444; border-radius: 10px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
+.alert-zero { color: #10b981; }
+
+/* Filters */
+.filter-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.fsel { padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px; background: white; font-size: 12px; color: #374151; cursor: pointer; }
+.fsearch { padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px; background: white; font-size: 12px; color: #374151; min-width: 180px; }
+
+/* Flux nav */
+.flux-nav { position: sticky; top: 105px; z-index: 90; background: #f5f6fa; padding: 8px 0 10px; margin-bottom: 16px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.flux-nav::-webkit-scrollbar { display: none; }
+.flux-pill { flex-shrink: 0; display: flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #e5e7eb; background: white; color: #6b7280; transition: all .15s; white-space: nowrap; }
+.flux-pill:hover { border-color: #6366f1; color: #6366f1; }
+.flux-pill.active { background: #6366f1; color: white; border-color: #6366f1; }
+.flux-pill.has-alert { border-color: #fca5a5; color: #ef4444; }
+.flux-pill.has-alert.active { background: #ef4444; border-color: #ef4444; color: white; }
+.flux-pill .pcount { font-size: 11px; font-weight: 700; opacity: .8; }
+
+@media (max-width: 768px) {
+  .charts-row { grid-template-columns: 1fr; }
+  .cards { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<script>window.DASHBOARD_DATA_B64={curFile:'__FILENAME__',curDate:'__DATE__',curCSV:'__CSV__'};</script>
+
+<div id="upload-zone" style="display:none">
+  <div class="upload-title">📊 Dashboard KPIs Acasi</div>
+  <div class="upload-subtitle">Chargez vos fichiers pour générer le dashboard</div>
+  <div class="upload-cards">
+    <div class="upload-card" id="card-cur" onclick="document.getElementById('f-cur').click()">
+      <div class="icon">📅</div>
+      <div class="label">Semaine courante *</div>
+      <div class="sublabel">Weekly_user_kpis_W28.csv</div>
+      <div class="file-name" id="n-cur"></div>
+    </div>
+    <div class="upload-card" id="card-prev" onclick="document.getElementById('f-prev').click()">
+      <div class="icon">🕐</div>
+      <div class="label">Semaine précédente</div>
+      <div class="sublabel">Optionnel — deltas</div>
+      <div class="file-name" id="n-prev"></div>
+    </div>
+    <div class="upload-card" id="card-cfg" onclick="document.getElementById('f-cfg').click()">
+      <div class="icon">⚙️</div>
+      <div class="label">Config équipes</div>
+      <div class="sublabel">teams-config.json<br>Optionnel</div>
+      <div class="file-name" id="n-cfg"></div>
+    </div>
+  </div>
+  <input type="file" id="f-cur" accept=".csv" onchange="loadCSV('cur',this)">
+  <input type="file" id="f-prev" accept=".csv" onchange="loadCSV('prev',this)">
+  <input type="file" id="f-cfg" accept=".json" onchange="loadConfig(this)">
+  <button class="btn-go" id="btn-go" disabled onclick="buildDashboard()">Générer le dashboard →</button>
+</div>
+
+<div id="dashboard">
+  <div class="header">
+    <div class="header-left">
+      <div class="header-title">Dashboard KPIs</div>
+      <span class="pill pill-cur" id="lbl-cur"></span>
+      <span class="pill pill-prev" id="lbl-prev" style="display:none"></span>
+      <span class="update-date" id="lbl-date"></span>
+    </div>
+    <button class="btn-sm" onclick="resetApp()">⟲ Changer les fichiers</button>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('global')">Vue Globale</div>
+    <div class="tab" onclick="switchTab('equipes')" id="t-equipes">Par Équipe</div>
+    <div class="tab" onclick="switchTab('coaches')" id="t-coaches">Par Coach</div>
+    <div class="tab" onclick="switchTab('profil')" id="t-profil">Profil</div>
+    <div class="tab" onclick="switchTab('banques')" id="t-banques">Banques</div>
+    <div class="tab" onclick="switchTab('flux')" id="t-flux">Alertes Flux</div>
+  </div>
+  <div class="content">
+    <div id="p-global" class="panel active"></div>
+    <div id="p-equipes" class="panel"></div>
+    <div id="p-coaches" class="panel"></div>
+    <div id="p-profil" class="panel"></div>
+    <div id="p-banques" class="panel"></div>
+    <div id="p-flux" class="panel"></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG (default — overridden by JSON upload) ──────────────────────────────
+let CFG = {
+  excludedCoaches: ["Jonathan Cohen", "Hajar Meziane", "Aude amigues", "Samuel Kabbaj"],
+  excludedForms: ["Micro-entrepreneur"],
+  tribes: [{
+    name: "Tribe 1", leader: "Brice Tandu",
+    squads: [
+      { name: "Squad Orange", color: "#f97316", leader: "Kadi Camara",     members: ["Lassana Sacko","Célia Allo"] },
+      { name: "Squad Rose",   color: "#ec4899", leader: "Gabrielle Vaillant", members: ["Samara Debanino"] },
+      { name: "Squad Rouge",  color: "#ef4444", leader: "Zina Alami",      members: ["Imane Hamoumou","Saad Padavia"] },
+      { name: "Squad Bleue",  color: "#3b82f6", leader: "Amine Missoum",   members: ["Adil Daoudi","Arthur Le Calvez"] }
+    ],
+    standalone: ["Léa Menegoz"]
+  }]
+};
+
+// ── DATA ──────────────────────────────────────────────────────────────────────
+let allCurRows = [], allPrevRows = [];
+let curRows = [], prevRows = [];
+let curLabel = '', prevLabel = '', curDate = '';
+let charts = {};
+
+// ── AUTO-LOAD ─────────────────────────────────────────────────────────────────
+async function init() {
+  // Support injection base64 (automatisation Make)
+  if (window.DASHBOARD_DATA_B64 && window.DASHBOARD_DATA_B64.curCSV) {
+    window.DASHBOARD_DATA = {
+      curFile:  window.DASHBOARD_DATA_B64.curFile  || '',
+      curDate:  window.DASHBOARD_DATA_B64.curDate  || '',
+      curCSV:   atob(window.DASHBOARD_DATA_B64.curCSV),
+      prevFile: null,
+      prevDate: null,
+      prevCSV:  null
+    };
+  }
+  // Mode export : données intégrées directement dans le HTML
+  if (window.DASHBOARD_DATA && window.DASHBOARD_DATA.curCSV) {
+    autoLoad(window.DASHBOARD_DATA);
+    return;
+  }
+  // Mode serveur (via Ouvrir Dashboard.command)
+  if (location.protocol === 'http:' || location.protocol === 'https:') {
+    try {
+      const resp = await fetch('../data/latest.json');
+      if (resp.ok) {
+        const m = await resp.json();
+        if (m.curCSV) { autoLoad(m); return; }
+      }
+    } catch(e) {}
+  }
+  // Mode manuel : afficher la zone d'upload
+  document.getElementById('upload-zone').style.display = 'flex';
+}
+
+function autoLoad(m) {
+  curDate = m.curDate || '';
+  curLabel = (m.curFile || '').replace(/weekly_user_kpis_/i,'').replace('.csv','').toUpperCase();
+  prevLabel = (m.prevFile || '').replace(/weekly_user_kpis_/i,'').replace('.csv','').toUpperCase();
+
+  Papa.parse(m.curCSV, { header:true, skipEmptyLines:true, dynamicTyping:true, complete(r) {
+    allCurRows = r.data.filter(row => row[C.company]);
+    if (m.prevCSV) {
+      Papa.parse(m.prevCSV, { header:true, skipEmptyLines:true, dynamicTyping:true, complete(r2) {
+        allPrevRows = r2.data.filter(row => row[C.company]);
+        buildDashboard();
+      }});
+    } else {
+      buildDashboard();
+    }
+  }});
+}
+
+window.addEventListener('DOMContentLoaded', init);
+
+const C = {
+  coach: 'coach responsable',
+  company: "nom de l'entreprise",
+  url: 'profil Bacasi',
+  forme: 'forme sociale',
+  completion: '% de complétion du profil',
+  bankDeco: 'banque(s) deconnectee(s) depuis 30+ jours',
+  txCat: 'transactions a categoriser',
+  txMatch: 'transactions a matcher',
+  txNonRappr: 'transactions rapprochees non rapprochables',
+  virInternes: 'virements internes non nuls',
+  achatsIncomp: 'achats incomplets',
+  achatsCat: 'achats a categoriser',
+  achatsMatch: 'achats a matcher',
+  achatsDouble: 'achats en double',
+  immoVerif: 'immobilisations a verifier',
+  immoPot: 'immobilisations potentielles',
+  ventesNR: 'ventes non rapprochees',
+};
+
+const ALERTS = [
+  { key:'txCat',        label:'Tx à catégoriser',              op:'>',  t:50 },
+  { key:'txMatch',      label:'Tx à matcher',                  op:'>',  t:50 },
+  { key:'txNonRappr',   label:'Tx rapproch. non rapprochables',op:'>',  t:50 },
+  { key:'virInternes',  label:'Virements internes non nuls',   op:'==', t:1  },
+  { key:'achatsIncomp', label:'Achats incomplets',             op:'>',  t:10 },
+  { key:'achatsCat',    label:'Achats à catégoriser',          op:'>',  t:20 },
+  { key:'achatsMatch',  label:'Achats à matcher',              op:'>',  t:20 },
+  { key:'achatsDouble', label:'Achats en double',              op:'>',  t:10 },
+  { key:'immoVerif',    label:'Immobilisations à vérifier',    op:'>',  t:1  },
+  { key:'immoPot',      label:'Immobilisations potentielles',  op:'>',  t:1  },
+  { key:'ventesNR',     label:'Ventes non rapprochées',        op:'>',  t:20 },
+];
+
+// ── LOAD ─────────────────────────────────────────────────────────────────────
+function loadCSV(type, inp) {
+  const file = inp.files[0]; if (!file) return;
+  const lbl = file.name.replace('.csv','').replace(/weekly_user_kpis_/i,'').toUpperCase();
+  Papa.parse(file, { header:true, skipEmptyLines:true, dynamicTyping:true, complete(res) {
+    const rows = res.data.filter(r => r[C.company]);
+    if (type==='cur') { allCurRows=rows; curLabel=lbl; markCard('cur',file.name); document.getElementById('btn-go').disabled=false; }
+    else              { allPrevRows=rows; prevLabel=lbl; markCard('prev',file.name); }
+  }});
+}
+
+function loadConfig(inp) {
+  const file = inp.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { try { CFG = JSON.parse(e.target.result); markCard('cfg', file.name); } catch(err) { alert('Fichier JSON invalide'); } };
+  reader.readAsText(file);
+}
+
+function markCard(id, name) {
+  document.getElementById('n-'+id).textContent = name;
+  document.getElementById('card-'+id).classList.add('loaded');
+}
+
+function applyFilters() {
+  const excCoaches = CFG.excludedCoaches || [];
+  const excForms   = CFG.excludedForms   || [];
+  curRows  = allCurRows.filter(r => !excCoaches.includes(r[C.coach]) && !excForms.includes(r[C.forme]));
+  prevRows = allPrevRows.filter(r => !excCoaches.includes(r[C.coach]) && !excForms.includes(r[C.forme]));
+}
+
+function resetApp() {
+  document.getElementById('upload-zone').style.display='flex';
+  document.getElementById('dashboard').style.display='none';
+  allCurRows=[]; allPrevRows=[]; curRows=[]; prevRows=[];
+  ['cur','prev','cfg'].forEach(id => { document.getElementById('card-'+id).classList.remove('loaded'); document.getElementById('n-'+id).textContent=''; });
+  document.getElementById('btn-go').disabled=true;
+  Object.values(charts).forEach(c=>c.destroy()); charts={};
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+const v = (row,key) => Number(row[C[key]])||0;
+function isAlert(row,a) { const val=v(row,a.key); return a.op==='>' ? val>a.t : val===a.t; }
+function prevOf(row) { return prevRows.find(r=>r[C.company]===row[C.company]); }
+
+function delta(cur, prev, badDir='up') {
+  if (prev===undefined||prev===null) return '';
+  const d=cur-prev;
+  if (d===0) return '<span class="eq">= même</span>';
+  const up = d>0;
+  const cls = (badDir==='up') ? (up?'up':'dn') : (up?'dn':'up');
+  return `<span class="${cls}">${up?'▲':'▼'}${Math.abs(d)}</span>`;
+}
+
+function thS(tid,i,lbl) { return `<th onclick="sortTbl('${tid}',${i})">${lbl} ↕</th>`; }
+let _sort={};
+function sortTbl(tid,ci) {
+  const t=document.getElementById(tid), tb=t.querySelector('tbody');
+  const rows=Array.from(tb.querySelectorAll('tr'));
+  const asc = _sort[tid]!==ci;
+  _sort[tid]=asc?ci:-ci;
+  rows.sort((a,b)=>{
+    const av=a.cells[ci]?.textContent.trim()||'', bv=b.cells[ci]?.textContent.trim()||'';
+    const an=parseFloat(av),bn=parseFloat(bv);
+    if(!isNaN(an)&&!isNaN(bn)) return asc?an-bn:bn-an;
+    return asc?av.localeCompare(bv,'fr'):bv.localeCompare(av,'fr');
+  });
+  rows.forEach(r=>tb.appendChild(r));
+}
+
+function coachSquad(coachName) {
+  for (const tribe of (CFG.tribes||[])) {
+    if (tribe.leader===coachName) return { squad:'Tribe Leader', color:'#6366f1', tribe:tribe.name };
+    for (const sq of (tribe.squads||[])) {
+      if (sq.leader===coachName||sq.members.includes(coachName)) return { squad:sq.name, color:sq.color };
+    }
+    if ((tribe.standalone||[]).includes(coachName)) return { squad:'Standalone', color:'#8b5cf6' };
+  }
+  return { squad:'—', color:'#9ca3af' };
+}
+
+function squadMembers(sq) { return [sq.leader, ...sq.members]; }
+function rowsForCoach(coach, pool) { return pool.filter(r=>r[C.coach]===coach); }
+function rowsForSquad(sq, pool) { return pool.filter(r=>squadMembers(sq).includes(r[C.coach])); }
+
+// ── MAIN BUILD ────────────────────────────────────────────────────────────────
+function buildDashboard() {
+  applyFilters();
+  document.getElementById('upload-zone').style.display='none';
+  document.getElementById('dashboard').style.display='block';
+  document.getElementById('lbl-cur').textContent=curLabel;
+  if (prevRows.length) { document.getElementById('lbl-prev').style.display='inline-block'; document.getElementById('lbl-prev').textContent='vs '+prevLabel; }
+  if (curDate) document.getElementById('lbl-date').textContent = '— mis à jour le ' + curDate;
+  buildGlobal(); buildEquipes(); buildCoaches(); buildProfil(); buildBanques(); buildFlux(); updateTabBadges();
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById('p-'+name).classList.add('active');
+}
+
+function updateTabBadges() {
+  const profilN  = curRows.filter(r=>v(r,'completion')<100).length;
+  const banquesN = curRows.filter(r=>v(r,'bankDeco')>0).length;
+  const fluxN    = curRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+  const coachesN = [...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))].length;
+  document.getElementById('t-profil').innerHTML=`Profil <span class="badge-tab">${profilN}</span>`;
+  document.getElementById('t-banques').innerHTML=`Banques <span class="badge-tab">${banquesN}</span>`;
+  document.getElementById('t-flux').innerHTML=`Alertes Flux <span class="badge-tab">${fluxN}</span>`;
+  document.getElementById('t-coaches').innerHTML=`Par Coach <span class="badge-tab">${coachesN}</span>`;
+}
+
+// ── GLOBAL ────────────────────────────────────────────────────────────────────
+function buildGlobal() {
+  const tot=curRows.length, pTot=prevRows.length;
+  const incomp=curRows.filter(r=>v(r,'completion')<100).length;
+  const pIncomp=prevRows.filter(r=>v(r,'completion')<100).length;
+  const bank=curRows.filter(r=>v(r,'bankDeco')>0).length;
+  const pBank=prevRows.filter(r=>v(r,'bankDeco')>0).length;
+  const flux=curRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+  const pFlux=prevRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+  const coaches=[...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))];
+
+  document.getElementById('p-global').innerHTML=`
+  <div class="cards">
+    <div class="card blue"><div class="card-value">${tot}</div><div class="card-label">Dossiers actifs</div><div class="card-delta">${pTot?delta(tot,pTot,'down'):''}</div></div>
+    <div class="card ${incomp?'orange':'green'}"><div class="card-value">${incomp}</div><div class="card-label">Profils &lt;100%</div><div class="card-delta">${pTot?delta(incomp,pIncomp,'up'):''}</div></div>
+    <div class="card ${bank?'red':'green'}"><div class="card-value">${bank}</div><div class="card-label">Clients avec ≥1 banque déconnectée</div><div class="card-delta">${pTot?delta(bank,pBank,'up'):''}</div></div>
+    <div class="card ${flux?'red':'green'}"><div class="card-value">${flux}</div><div class="card-label">Clients avec alertes flux</div><div class="card-delta">${pTot?delta(flux,pFlux,'up'):''}</div></div>
+    <div class="card blue"><div class="card-value">${coaches.length}</div><div class="card-label">Coachs actifs</div></div>
+  </div>
+  <div class="charts-row">
+    <div class="chart-box"><div class="chart-title">Dossiers par squad</div><canvas id="ch-squads"></canvas></div>
+    <div class="chart-box"><div class="chart-title">Alertes flux par type — nb clients concernés${prevRows.length?' (vs sem. préc.)':''}</div><canvas id="ch-alerts"></canvas></div>
+  </div>`;
+
+  // Chart dossiers par squad
+  const squadLabels = [], squadCounts = [], squadColors = [];
+  for (const tribe of (CFG.tribes||[])) {
+    for (const sq of (tribe.squads||[])) {
+      squadLabels.push(sq.name);
+      squadCounts.push(rowsForSquad(sq, curRows).length);
+      squadColors.push(sq.color + 'cc');
+    }
+    // Tribe leader (comme standalone)
+    squadLabels.push(tribe.leader.split(' ')[0] + ' (TL)');
+    squadCounts.push(rowsForCoach(tribe.leader, curRows).length);
+    squadColors.push('#6366f1cc');
+    for (const name of (tribe.standalone||[])) {
+      squadLabels.push(name.split(' ')[0]);
+      squadCounts.push(rowsForCoach(name, curRows).length);
+      squadColors.push('#8b5cf6cc');
+    }
+  }
+  charts['squads'] = new Chart(document.getElementById('ch-squads'), {
+    type:'bar',
+    data:{ labels: squadLabels,
+           datasets:[{ data: squadCounts, backgroundColor: squadColors, borderRadius:4 }] },
+    options:{ plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+  });
+
+  // Chart alertes par type — nb clients, avec comparaison sem. préc.
+  const alertLabels = ALERTS.map(a=>a.label.length>28?a.label.slice(0,27)+'…':a.label);
+  const alertCur  = ALERTS.map(a=>curRows.filter(r=>isAlert(r,a)).length);
+  const alertPrev = ALERTS.map(a=>prevRows.filter(r=>isAlert(r,a)).length);
+  const datasets = [{ label: curLabel||'Sem. courante', data: alertCur,
+    backgroundColor:'#ef444488', borderColor:'#ef4444', borderWidth:1, borderRadius:4 }];
+  if (prevRows.length) datasets.push({ label: prevLabel||'Sem. préc.', data: alertPrev,
+    backgroundColor:'#d1d5db88', borderColor:'#9ca3af', borderWidth:1, borderRadius:4 });
+  charts['alerts'] = new Chart(document.getElementById('ch-alerts'), {
+    type:'bar',
+    data:{ labels: alertLabels, datasets },
+    options:{ indexAxis:'y',
+      plugins:{ legend:{ display: prevRows.length>0, position:'top',
+        labels:{ boxWidth:12, font:{size:11} } } },
+      scales:{x:{beginAtZero:true, ticks:{stepSize:1}}} }
+  });
+}
+
+// ── EQUIPES ───────────────────────────────────────────────────────────────────
+function buildEquipes() {
+  let html='';
+  for (const tribe of (CFG.tribes||[])) {
+    const tribeRows = curRows.filter(r => {
+      const allMembers = [tribe.leader, ...(tribe.standalone||[]),
+        ...(tribe.squads||[]).flatMap(sq=>squadMembers(sq))];
+      return allMembers.includes(r[C.coach]);
+    });
+    const pTribeRows = prevRows.filter(r => {
+      const allMembers = [tribe.leader, ...(tribe.standalone||[]),
+        ...(tribe.squads||[]).flatMap(sq=>squadMembers(sq))];
+      return allMembers.includes(r[C.coach]);
+    });
+
+    // Tribe summary
+    const tDoss=tribeRows.length, pTDoss=pTribeRows.length;
+    const tIncomp=tribeRows.filter(r=>v(r,'completion')<100).length, pTIncomp=pTribeRows.filter(r=>v(r,'completion')<100).length;
+    const tBank=tribeRows.filter(r=>v(r,'bankDeco')>0).length, pTBank=pTribeRows.filter(r=>v(r,'bankDeco')>0).length;
+    const tFlux=tribeRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length, pTFlux=pTribeRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+    html += `<div class="cards" style="margin-bottom:8px">
+      <div class="card blue" style="border-left-color:#6366f1">
+        <div class="card-value">${tDoss}</div>
+        <div class="card-label">Dossiers — ${tribe.name} (leader: ${tribe.leader.split(' ')[0]})</div>
+        <div class="card-delta">${pTribeRows.length?delta(tDoss,pTDoss,'down'):''}</div>
+      </div>
+      <div class="card ${tIncomp?'orange':'green'}">
+        <div class="card-value">${tIncomp}</div>
+        <div class="card-label">Profils &lt;100%</div>
+        <div class="card-delta">${pTribeRows.length?delta(tIncomp,pTIncomp,'up'):''}</div>
+      </div>
+      <div class="card ${tBank?'red':'green'}">
+        <div class="card-value">${tBank}</div>
+        <div class="card-label">Clients avec ≥1 banque déco</div>
+        <div class="card-delta">${pTribeRows.length?delta(tBank,pTBank,'up'):''}</div>
+      </div>
+      <div class="card ${tFlux?'red':'green'}">
+        <div class="card-value">${tFlux}</div>
+        <div class="card-label">Clients avec alertes flux</div>
+        <div class="card-delta">${pTribeRows.length?delta(tFlux,pTFlux,'up'):''}</div>
+      </div>
+    </div>`;
+
+    // Squads table
+    html+=`<div class="tbl-wrap" style="margin-bottom:20px">
+      <div class="tbl-head"><span class="tbl-title">Détail par squad</span></div>
+      <table id="tbl-squads"><thead><tr>
+        <th>Squad</th>
+        ${thS('tbl-squads',1,'Dossiers')}
+        ${thS('tbl-squads',2,'Profil moy.')}
+        ${thS('tbl-squads',3,'&lt;100%')}
+        ${thS('tbl-squads',4,'Banques déco')}
+        ${thS('tbl-squads',5,'Alertes flux')}
+        ${prevRows.length?'<th>Δ flux</th>':''}
+      </tr></thead><tbody>`;
+
+    for (const sq of (tribe.squads||[])) {
+      const sRows = rowsForSquad(sq, curRows);
+      const pSRows= rowsForSquad(sq, prevRows);
+      const cnt=sRows.length;
+      const avg=cnt?Math.round(sRows.reduce((s,r)=>s+v(r,'completion'),0)/cnt):0;
+      const inc=sRows.filter(r=>v(r,'completion')<100).length;
+      const bk=sRows.filter(r=>v(r,'bankDeco')>0).length;
+      const fl=sRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+      const pFl=pSRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+      html+=`<tr>
+        <td><span class="squad-dot" style="background:${sq.color}"></span><strong>${sq.name}</strong>
+          <span style="font-size:11px;color:#9ca3af"> — ${sq.leader.split(' ')[0]} +${sq.members.length}</span></td>
+        <td>${cnt}</td><td>${avg}%</td>
+        <td>${inc>0?`<span class="b-warn">${inc}</span>`:'—'}</td>
+        <td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td>
+        <td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>
+        ${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}
+      </tr>`;
+    }
+
+    // Tribe leader (comme standalone)
+    {
+      const name=tribe.leader;
+      const sRows=rowsForCoach(name,curRows), pSRows=rowsForCoach(name,prevRows);
+      const cnt=sRows.length;
+      const avg=cnt?Math.round(sRows.reduce((s,r)=>s+v(r,'completion'),0)/cnt):0;
+      const inc=sRows.filter(r=>v(r,'completion')<100).length;
+      const bk=sRows.filter(r=>v(r,'bankDeco')>0).length;
+      const fl=sRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+      const pFl=pSRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+      html+=`<tr>
+        <td><span class="squad-dot" style="background:#6366f1"></span><strong>${name}</strong>
+          <span style="font-size:11px;color:#9ca3af"> (tribe leader)</span></td>
+        <td>${cnt}</td><td>${avg}%</td>
+        <td>${inc>0?`<span class="b-warn">${inc}</span>`:'—'}</td>
+        <td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td>
+        <td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>
+        ${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}
+      </tr>`;
+    }
+    // Standalone
+    for (const name of (tribe.standalone||[])) {
+      const sRows=rowsForCoach(name,curRows), pSRows=rowsForCoach(name,prevRows);
+      const cnt=sRows.length;
+      const avg=cnt?Math.round(sRows.reduce((s,r)=>s+v(r,'completion'),0)/cnt):0;
+      const inc=sRows.filter(r=>v(r,'completion')<100).length;
+      const bk=sRows.filter(r=>v(r,'bankDeco')>0).length;
+      const fl=sRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+      const pFl=pSRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+      html+=`<tr>
+        <td><span class="squad-dot" style="background:#8b5cf6"></span>${name}
+          <span style="font-size:11px;color:#9ca3af"> (standalone)</span></td>
+        <td>${cnt}</td><td>${avg}%</td>
+        <td>${inc>0?`<span class="b-warn">${inc}</span>`:'—'}</td>
+        <td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td>
+        <td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>
+        ${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}
+      </tr>`;
+    }
+    html+=`</tbody></table></div>`;
+
+    // Per-squad detail
+    html+=`<div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#374151">Détail par coach dans chaque squad</div>`;
+    for (const sq of (tribe.squads||[])) {
+      html+=`<div class="squad-section">
+        <div class="squad-header" style="background:${sq.color}">
+          <span class="squad-dot" style="background:white;opacity:.6"></span>
+          ${sq.name}
+          <span class="squad-meta">${rowsForSquad(sq,curRows).length} dossiers · ${sq.leader.split(' ')[0]} (leader) + ${sq.members.map(m=>m.split(' ')[0]).join(', ')}</span>
+        </div>
+        <div class="squad-body">
+          <table id="tbl-sq-${sq.name.replace(' ','')}"><thead><tr>
+            <th>Coach</th>
+            ${thS('tbl-sq-'+sq.name.replace(' ',''),1,'Dossiers')}
+            ${thS('tbl-sq-'+sq.name.replace(' ',''),2,'Profil moy.')}
+            ${thS('tbl-sq-'+sq.name.replace(' ',''),3,'&lt;100%')}
+            ${thS('tbl-sq-'+sq.name.replace(' ',''),4,'Banques déco')}
+            ${thS('tbl-sq-'+sq.name.replace(' ',''),5,'Alertes flux')}
+            ${prevRows.length?`<th>Δ flux</th>`:''}
+          </tr></thead><tbody>`;
+      for (const coach of squadMembers(sq)) {
+        const cRows=rowsForCoach(coach,curRows), pCRows=rowsForCoach(coach,prevRows);
+        if (!cRows.length) continue;
+        const cnt=cRows.length;
+        const avg=Math.round(cRows.reduce((s,r)=>s+v(r,'completion'),0)/cnt);
+        const inc=cRows.filter(r=>v(r,'completion')<100).length;
+        const bk=cRows.filter(r=>v(r,'bankDeco')>0).length;
+        const fl=cRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+        const pFl=pCRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+        const isLeader=coach===sq.leader;
+        html+=`<tr>
+          <td>${isLeader?'👑 ':'&nbsp;&nbsp;'}${coach}</td>
+          <td>${cnt}</td><td>${avg}%</td>
+          <td>${inc>0?`<span class="b-warn">${inc}</span>`:'—'}</td>
+          <td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td>
+          <td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>
+          ${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}
+        </tr>`;
+      }
+      html+=`</tbody></table></div></div>`;
+    }
+  }
+  document.getElementById('p-equipes').innerHTML=html;
+}
+
+// ── PAR COACH ────────────────────────────────────────────────────────────────
+function buildCoaches() {
+  const coaches=[...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))].sort();
+  let html=`<div class="tbl-wrap"><div class="tbl-head"><span class="tbl-title">Récapitulatif par coach</span><span class="tbl-sub">${coaches.length} coachs</span></div>
+  <table id="tbl-ch"><thead><tr>
+    ${thS('tbl-ch',0,'Coach')}
+    <th>Squad</th>
+    ${thS('tbl-ch',2,'Dossiers')}
+    ${thS('tbl-ch',3,'Profil moy.')}
+    ${thS('tbl-ch',4,'&lt;100%')}
+    ${thS('tbl-ch',5,'Banques déco')}
+    ${thS('tbl-ch',6,'Alertes flux')}
+    ${prevRows.length?`<th>Δ flux</th>`:''}
+  </tr></thead><tbody>`;
+
+  coaches.forEach(coach=>{
+    const rows=rowsForCoach(coach,curRows), pRows=rowsForCoach(coach,prevRows);
+    const cnt=rows.length;
+    const avg=Math.round(rows.reduce((s,r)=>s+v(r,'completion'),0)/cnt);
+    const inc=rows.filter(r=>v(r,'completion')<100).length;
+    const bk=rows.filter(r=>v(r,'bankDeco')>0).length;
+    const fl=rows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+    const pFl=pRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+    const sq=coachSquad(coach);
+    html+=`<tr>
+      <td><strong>${coach}</strong></td>
+      <td><span class="squad-dot" style="background:${sq.color}"></span>${sq.squad}</td>
+      <td>${cnt}</td><td>${avg}%</td>
+      <td>${inc>0?`<span class="b-warn">${inc}</span>`:'—'}</td>
+      <td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td>
+      <td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>
+      ${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}
+    </tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  document.getElementById('p-coaches').innerHTML=html;
+}
+
+// ── helper filtre coach ───────────────────────────────────────────────────────
+function coachFilterBar(selectId, searchId, onchange) {
+  const coaches=['Tous les coachs',...[...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))].sort()];
+  return `<div class="filter-bar">
+    <select class="fsel" id="${selectId}" onchange="${onchange}()">
+      ${coaches.map(c=>`<option>${c}</option>`).join('')}
+    </select>
+    <input class="fsearch" type="text" id="${searchId}" placeholder="Rechercher un client…" oninput="${onchange}()">
+  </div>`;
+}
+
+function applyTableFilter(rowClass, coachSel, searchInput) {
+  const cf=document.getElementById(coachSel)?.value||'Tous les coachs';
+  const cs=(document.getElementById(searchInput)?.value||'').toLowerCase();
+  document.querySelectorAll('.'+rowClass).forEach(r=>{
+    const show=(cf==='Tous les coachs'||r.dataset.coach===cf)&&(!cs||r.dataset.co.includes(cs));
+    r.style.display=show?'':'none';
+  });
+}
+
+// ── PROFIL ────────────────────────────────────────────────────────────────────
+function buildProfil() {
+  const incomp=curRows.filter(r=>v(r,'completion')<100).sort((a,b)=>v(a,'completion')-v(b,'completion'));
+  let html=coachFilterBar('pf-coach','pf-search','filterProfil');
+  html+=`<div class="alert-group">
+    <div class="alert-group-title">Profils incomplets (&lt;100%) <span class="alert-cnt">${incomp.length}</span></div>
+    <div class="tbl-wrap"><table id="tbl-incomp"><thead><tr>
+      ${thS('tbl-incomp',0,'Coach')} ${thS('tbl-incomp',1,'Client')} ${thS('tbl-incomp',2,'%')}
+      ${prevRows.length?'<th>Sem. préc.</th><th>Statut</th>':''}
+      <th>Lien</th>
+    </tr></thead><tbody>`;
+  incomp.forEach(row=>{
+    const pr=prevOf(row), cur=v(row,'completion'), prev=pr?v(pr,'completion'):null;
+    let st='';
+    if (prev!==null) st=prev<100&&cur<100?'<span class="b-persist">⚠ Persistant</span>':'<span class="b-warn">Nouveau</span>';
+    html+=`<tr class="pf-row" data-coach="${row[C.coach]}" data-co="${row[C.company].toLowerCase()}">
+      <td>${row[C.coach]}</td><td>${row[C.company]}</td><td><strong>${cur}%</strong></td>
+      ${prevRows.length?`<td>${prev!==null?prev+'%':'—'}</td><td>${st}</td>`:''}
+      <td><a class="link" href="${row[C.url]}" target="_blank">→</a></td></tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  document.getElementById('p-profil').innerHTML=html;
+}
+function filterProfil() { applyTableFilter('pf-row','pf-coach','pf-search'); }
+
+// ── BANQUES ───────────────────────────────────────────────────────────────────
+function buildBanques() {
+  const banks=curRows.filter(r=>v(r,'bankDeco')>0).sort((a,b)=>v(b,'bankDeco')-v(a,'bankDeco'));
+  let html=coachFilterBar('bk-coach','bk-search','filterBanques');
+  html+=`<div class="alert-group">
+    <div class="alert-group-title">
+      Clients avec ≥1 banque déconnectée depuis 30+ jours
+      <span class="alert-cnt">${banks.length}</span>
+      ${prevRows.length?'<span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:8px">🔴 = persiste depuis sem. passée — très critique</span>':''}
+    </div>
+    <div class="tbl-wrap"><table id="tbl-banks"><thead><tr>
+      ${thS('tbl-banks',0,'Coach')} ${thS('tbl-banks',1,'Client')} ${thS('tbl-banks',2,'Nb banques déco')}
+      ${prevRows.length?'<th>Sem. préc.</th><th>Statut</th>':''}
+      <th>Lien</th>
+    </tr></thead><tbody>`;
+  banks.forEach(row=>{
+    const pr=prevOf(row), cur=v(row,'bankDeco'), prev=pr?v(pr,'bankDeco'):null;
+    let st='';
+    if (prev!==null) st=prev>0&&cur>0?'<span class="b-persist">🔴 PERSISTANT</span>':'<span class="b-warn">Nouveau</span>';
+    html+=`<tr class="bk-row" data-coach="${row[C.coach]}" data-co="${row[C.company].toLowerCase()}">
+      <td>${row[C.coach]}</td><td>${row[C.company]}</td><td><span class="b-crit">${cur}</span></td>
+      ${prevRows.length?`<td>${prev!==null?prev:'—'}</td><td>${st}</td>`:''}
+      <td><a class="link" href="${row[C.url]}" target="_blank">→</a></td></tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  document.getElementById('p-banques').innerHTML=html;
+}
+function filterBanques() { applyTableFilter('bk-row','bk-coach','bk-search'); }
+
+// ── ALERTES FLUX ─────────────────────────────────────────────────────────────
+function buildFlux() {
+  const coaches=['Tous les coachs',...[...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))].sort()];
+
+  // Precalculate counts for nav
+  const alertCounts = ALERTS.map(a=>curRows.filter(r=>isAlert(r,a)).length);
+
+  // Nav pills
+  let nav='<div class="flux-nav" id="flux-nav">';
+  ALERTS.forEach((a,i)=>{
+    const cnt=alertCounts[i];
+    const cls=cnt>0?'flux-pill has-alert':'flux-pill';
+    const short=a.label.length>22?a.label.slice(0,21)+'…':a.label;
+    nav+=`<div class="${cls}" id="pill-${i}" onclick="scrollToFlux(${i})">${short} <span class="pcount">${cnt}</span></div>`;
+  });
+  nav+='</div>';
+
+  let html=nav+`<div class="filter-bar">
+    <select class="fsel" id="fc-coach" onchange="filterFlux()">
+      ${coaches.map(c=>`<option>${c}</option>`).join('')}
+    </select>
+    <input class="fsearch" type="text" id="fc-search" placeholder="Rechercher un client…" oninput="filterFlux()">
+  </div><div id="flux-body">`;
+
+  ALERTS.forEach((a,i)=>{
+    const alertRows=curRows.filter(r=>isAlert(r,a)).sort((x,y)=>v(y,a.key)-v(x,a.key));
+    const tid=`tfl-${i}`;
+    if (!alertRows.length) {
+      html+=`<div class="alert-group" id="fs-${i}"><div class="alert-group-title alert-zero">✓ ${a.label} ${a.op==='=='?'=':a.op} ${a.t} <span style="background:#f0fdf4;color:#10b981;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700">0</span></div></div>`;
+      return;
+    }
+    html+=`<div class="alert-group" id="fs-${i}" data-ai="${i}">
+      <div class="alert-group-title">${a.label} ${a.op==='=='?'=':a.op} ${a.t} <span class="alert-cnt afc">${alertRows.length}</span></div>
+      <div class="tbl-wrap"><table id="${tid}"><thead><tr>
+        ${thS(tid,0,'Coach')} ${thS(tid,1,'Client')} ${thS(tid,2,'Valeur')}
+        ${prevRows.length?`<th>Sem. préc.</th><th>Δ</th><th>Statut</th>`:''}
+        <th>Lien</th>
+      </tr></thead><tbody>`;
+    alertRows.forEach(row=>{
+      const cur=v(row,a.key), pr=prevOf(row), prev=pr?v(pr,a.key):null;
+      let st='';
+      if (prev!==null) {
+        const wasAlert=pr&&isAlert(pr,a);
+        st=wasAlert?'<span class="b-persist">⚠ Persistant</span>':'<span class="b-warn">Nouveau</span>';
+      }
+      html+=`<tr class="fr" data-coach="${row[C.coach]}" data-co="${row[C.company].toLowerCase()}">
+        <td>${row[C.coach]}</td><td>${row[C.company]}</td><td><strong>${cur}</strong></td>
+        ${prevRows.length?`<td>${prev!==null?prev:'—'}</td><td>${prev!==null?delta(cur,prev,'up'):'—'}</td><td>${st}</td>`:''}
+        <td><a class="link" href="${row[C.url]}" target="_blank">→</a></td>
+      </tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  });
+  html+=`</div>`;
+  document.getElementById('p-flux').innerHTML=html;
+
+  // IntersectionObserver — highlight active pill on scroll
+  const observer = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      const i=e.target.id.replace('fs-','');
+      const pill=document.getElementById('pill-'+i);
+      if (!pill) return;
+      if (e.isIntersecting) {
+        document.querySelectorAll('.flux-pill').forEach(p=>p.classList.remove('active'));
+        pill.classList.add('active');
+        // scroll pill into view in nav
+        pill.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+      }
+    });
+  }, { rootMargin:'-20% 0px -70% 0px', threshold:0 });
+  document.querySelectorAll('[id^="fs-"]').forEach(el=>observer.observe(el));
+}
+
+function scrollToFlux(i) {
+  const el=document.getElementById('fs-'+i);
+  if (!el) return;
+  const offset=120; // header + tabs + nav
+  const top=el.getBoundingClientRect().top+window.scrollY-offset;
+  window.scrollTo({top, behavior:'smooth'});
+}
+
+function filterFlux() {
+  const cf=document.getElementById('fc-coach').value;
+  const cs=document.getElementById('fc-search').value.toLowerCase();
+  document.querySelectorAll('.fr').forEach(r=>{
+    const show=(cf==='Tous'||r.dataset.coach===cf)&&(!cs||r.dataset.co.includes(cs));
+    r.style.display=show?'':'none';
+  });
+  document.querySelectorAll('.alert-group[data-ai]').forEach(g=>{
+    const vis=g.querySelectorAll('.fr:not([style*="display: none"])').length;
+    const badge=g.querySelector('.afc'); if(badge) badge.textContent=vis;
+  });
+}
+
+// Drag & drop
+['card-cur','card-prev','card-cfg'].forEach(id=>{
+  const card=document.getElementById(id);
+  card.addEventListener('dragover',e=>{e.preventDefault();card.classList.add('dragover');});
+  card.addEventListener('dragleave',()=>card.classList.remove('dragover'));
+  card.addEventListener('drop',e=>{
+    e.preventDefault(); card.classList.remove('dragover');
+    const file=e.dataTransfer.files[0]; if(!file) return;
+    if (id==='card-cfg') { const fi=document.getElementById('f-cfg'); const dt=new DataTransfer(); dt.items.add(file); fi.files=dt.files; loadConfig(fi); return; }
+    const type=id==='card-cur'?'cur':'prev';
+    const fi=document.getElementById('f-'+type);
+    const dt=new DataTransfer(); dt.items.add(file); fi.files=dt.files;
+    loadCSV(type,fi);
+  });
+});
+</script>
+</body>
+</html>
