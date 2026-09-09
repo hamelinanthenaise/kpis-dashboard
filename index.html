@@ -208,7 +208,7 @@ async function init() {
     window.DASHBOARD_DATA = {
       curFile:  window.DASHBOARD_DATA_B64.curFile  || '',
       curDate:  window.DASHBOARD_DATA_B64.curDate  || '',
-      curCSV:   atob(window.DASHBOARD_DATA_B64.curCSV),
+      curCSV:   new TextDecoder('utf-8').decode(Uint8Array.from(atob(window.DASHBOARD_DATA_B64.curCSV), c => c.charCodeAt(0))),
       prevFile: null,
       prevDate: null,
       prevCSV:  null
