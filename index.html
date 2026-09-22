@@ -204,7 +204,7 @@ let charts = {};
 // ── AUTO-LOAD ─────────────────────────────────────────────────────────────────
 async function init() {
   // Support injection base64 (automatisation Make)
-  if (window.DASHBOARD_DATA_B64 && window.DASHBOARD_DATA_B64.curCSV) {
+  if (window.DASHBOARD_DATA_B64 && window.DASHBOARD_DATA_B64.curCSV && window.DASHBOARD_DATA_B64.curCSV !== '__CSV__') {
     window.DASHBOARD_DATA = {
       curFile:  window.DASHBOARD_DATA_B64.curFile  || '',
       curDate:  window.DASHBOARD_DATA_B64.curDate  || '',
