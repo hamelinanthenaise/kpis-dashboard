@@ -253,6 +253,9 @@ function autoLoad(m) {
 
 window.addEventListener('DOMContentLoaded', init);
 
+// Auto-reload toutes les 30 min pour que l'embed Notion reste à jour
+setTimeout(() => location.reload(), 30 * 60 * 1000);
+
 const C = {
   coach: 'coach responsable',
   company: "nom de l'entreprise",
