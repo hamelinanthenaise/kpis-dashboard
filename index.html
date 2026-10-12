@@ -119,7 +119,7 @@ tr:hover td { background: #fafafa; }
 </style>
 </head>
 <body>
-<script>window.DASHBOARD_DATA_B64={curFile:'__FILENAME__',curDate:'__DATE__',curCSV:'__CSV__'};</script>
+<script>window.DASHBOARD_DATA_B64={curFile:'__FILENAME__',curDate:'__DATE__',curCSV:'__CSV__',oblCSV:'__OBLCSV__'};</script>
 
 <div id="upload-zone" style="display:none">
   <div class="upload-title">📊 Dashboard KPIs Acasi</div>
@@ -143,10 +143,17 @@ tr:hover td { background: #fafafa; }
       <div class="sublabel">teams-config.json<br>Optionnel</div>
       <div class="file-name" id="n-cfg"></div>
     </div>
+    <div class="upload-card" id="card-obl" onclick="document.getElementById('f-obl').click()">
+      <div class="icon">📋</div>
+      <div class="label">Obligations</div>
+      <div class="sublabel">Obligations_report_W*.csv<br>Optionnel</div>
+      <div class="file-name" id="n-obl"></div>
+    </div>
   </div>
   <input type="file" id="f-cur" accept=".csv" onchange="loadCSV('cur',this)">
   <input type="file" id="f-prev" accept=".csv" onchange="loadCSV('prev',this)">
   <input type="file" id="f-cfg" accept=".json" onchange="loadConfig(this)">
+  <input type="file" id="f-obl" accept=".csv" onchange="loadOblCSV(this)">
   <button class="btn-go" id="btn-go" disabled onclick="buildDashboard()">Générer le dashboard →</button>
 </div>
 
@@ -167,6 +174,7 @@ tr:hover td { background: #fafafa; }
     <div class="tab" onclick="switchTab('profil')" id="t-profil">Profil</div>
     <div class="tab" onclick="switchTab('banques')" id="t-banques">Banques</div>
     <div class="tab" onclick="switchTab('flux')" id="t-flux">Alertes Flux</div>
+    <div class="tab" onclick="switchTab('obligations')" id="t-obligations">Obligations</div>
   </div>
   <div class="content">
     <div id="p-global" class="panel active"></div>
@@ -175,6 +183,7 @@ tr:hover td { background: #fafafa; }
     <div id="p-profil" class="panel"></div>
     <div id="p-banques" class="panel"></div>
     <div id="p-flux" class="panel"></div>
+    <div id="p-obligations" class="panel"></div>
   </div>
 </div>
 
@@ -186,10 +195,11 @@ let CFG = {
   tribes: [{
     name: "Tribe 1", leader: "Brice Tandu",
     squads: [
-      { name: "Squad Orange", color: "#f97316", leader: "Kadi Camara",      members: ["Célia Allo","Célia Mezouari","Ghali Essaifi","Jean-Michel Akoumian Anoma","Louiza Abdelkassa","Saad Padavia","Youssef El Mousselly"] },
-      { name: "Squad Rose",   color: "#ec4899", leader: "Gabrielle Vaillant", members: ["Adam Tarchoun","Adil Daoudi","Alexandre Koffi","Fatoumata Keita","Samara Deba Nino","Sirine Bedine"] },
-      { name: "Squad Rouge",  color: "#ef4444", leader: "Zina Alami",       members: ["Gabrielle Gio","Imane Hamoumou","Jeanne Gemar","Sarah Bouab","Yassine Mejmou","Zine Eddine Bouhadda"] },
-      { name: "Squad Bleue",  color: "#3b82f6", leader: "Amine Missoum",    members: ["Arthur Le Calvez","Guerci Saintiche Okouere","Ines Limane","Lassana Sacko","Ludovic Sakombi","Léna Houadj","Youssef Belmekki"] }
+      { name: "PROD-1", color: "#ef4444", leader: "Zina Alami",          members: ["Ahmed Zahid","Anne-Marie MELEDJE GUIA","Gabrielle Gio","Imane Hamoumou","Jeanne Gemar","Mohamed Amahzoune","Sarah Bouab","Yassine Mejmou","Zine Eddine Bouhadda"] },
+      { name: "PROD-2", color: "#3b82f6", leader: "Amine Missoum",       members: ["Arthur Le Calvez","Guerci Saintiche Okouere","Ines Limane","Lassana Sacko","Lena Houadj","Ludovic Sakombi","Léna Mulon Boutteau","Youssef Belmekki"] },
+      { name: "PROD-3", color: "#f97316", leader: "Kadi Camara",         members: ["Célia Allo","Célia Mezouari","Ghali Essaifi","Jean-Michel Akoumian Anoma","Laraib Abdul Sattar","Louiza Abdelkassa","Saad Padavia","Youssef El Mousselly"] },
+      { name: "PROD-4", color: "#7c3aed", leader: "Gabrielle Vaillant",  members: ["Adam Tarchoun","Adil Daoudi","Alexandre Koffi","Fatoumata Keita","Mame-Ibrahima Senghor","Samara Deba Nino","Sirine Bedine"] },
+      { name: "LEG-1",  color: "#10b981", leader: "",                    members: [] }
     ],
     standalone: ["Léa Menegoz","Marie-Sarah Labidi"]
   }]
@@ -199,16 +209,20 @@ let CFG = {
 let allCurRows = [], allPrevRows = [];
 let curRows = [], prevRows = [];
 let curLabel = '', prevLabel = '', curDate = '';
+let oblRows = [];   // obligations CSV
 let charts = {};
 
 // ── AUTO-LOAD ─────────────────────────────────────────────────────────────────
 async function init() {
   // Support injection base64 (automatisation Make)
   if (window.DASHBOARD_DATA_B64 && window.DASHBOARD_DATA_B64.curCSV && window.DASHBOARD_DATA_B64.curCSV !== '__CSV__') {
+    const decode64 = b64 => new TextDecoder('utf-8').decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+    const oblB64 = window.DASHBOARD_DATA_B64.oblCSV;
     window.DASHBOARD_DATA = {
       curFile:  window.DASHBOARD_DATA_B64.curFile  || '',
       curDate:  window.DASHBOARD_DATA_B64.curDate  || '',
-      curCSV:   new TextDecoder('utf-8').decode(Uint8Array.from(atob(window.DASHBOARD_DATA_B64.curCSV), c => c.charCodeAt(0))),
+      curCSV:   decode64(window.DASHBOARD_DATA_B64.curCSV),
+      oblCSV:   (oblB64 && oblB64 !== '__OBLCSV__') ? decode64(oblB64) : null,
       prevFile: null,
       prevDate: null,
       prevCSV:  null
@@ -240,13 +254,23 @@ function autoLoad(m) {
 
   Papa.parse(m.curCSV, { header:true, skipEmptyLines:true, dynamicTyping:true, complete(r) {
     allCurRows = r.data.filter(row => row[C.company]);
+    const parseObl = () => {
+      if (m.oblCSV) {
+        Papa.parse(m.oblCSV, { header:true, skipEmptyLines:true, dynamicTyping:true, complete(ro) {
+          oblRows = ro.data.filter(row => row[OBL.entreprise] && row[OBL.etat] !== undefined);
+          buildDashboard();
+        }});
+      } else {
+        buildDashboard();
+      }
+    };
     if (m.prevCSV) {
       Papa.parse(m.prevCSV, { header:true, skipEmptyLines:true, dynamicTyping:true, complete(r2) {
         allPrevRows = r2.data.filter(row => row[C.company]);
-        buildDashboard();
+        parseObl();
       }});
     } else {
-      buildDashboard();
+      parseObl();
     }
   }});
 }
@@ -274,6 +298,17 @@ const C = {
   immoVerif: 'immobilisations a verifier',
   immoPot: 'immobilisations potentielles',
   ventesNR: 'ventes non rapprochees',
+};
+
+// ── OBLIGATIONS CSV COLUMNS ───────────────────────────────────────────────────
+const OBL = {
+  famille:    'FAMILLE',
+  declaration:'DÉCLARATION',
+  entreprise: 'ENTREPRISE',
+  etat:       'ÉTAT',
+  echeance:   'ÉCHÉANCE',
+  statut:     'STATUT',
+  coach:      'COACH',
 };
 
 const ALERTS = [
@@ -308,6 +343,14 @@ function loadConfig(inp) {
   reader.readAsText(file);
 }
 
+function loadOblCSV(inp) {
+  const file = inp.files[0]; if (!file) return;
+  Papa.parse(file, { header:true, skipEmptyLines:true, dynamicTyping:false, complete(res) {
+    oblRows = res.data.filter(r => r[OBL.entreprise] && r[OBL.etat] !== undefined);
+    markCard('obl', file.name);
+  }});
+}
+
 function markCard(id, name) {
   document.getElementById('n-'+id).textContent = name;
   document.getElementById('card-'+id).classList.add('loaded');
@@ -323,8 +366,8 @@ function applyFilters() {
 function resetApp() {
   document.getElementById('upload-zone').style.display='flex';
   document.getElementById('dashboard').style.display='none';
-  allCurRows=[]; allPrevRows=[]; curRows=[]; prevRows=[];
-  ['cur','prev','cfg'].forEach(id => { document.getElementById('card-'+id).classList.remove('loaded'); document.getElementById('n-'+id).textContent=''; });
+  allCurRows=[]; allPrevRows=[]; curRows=[]; prevRows=[]; oblRows=[];
+  ['cur','prev','cfg','obl'].forEach(id => { document.getElementById('card-'+id).classList.remove('loaded'); document.getElementById('n-'+id).textContent=''; });
   document.getElementById('btn-go').disabled=true;
   Object.values(charts).forEach(c=>c.destroy()); charts={};
 }
@@ -374,6 +417,24 @@ function squadMembers(sq) { return [sq.leader, ...sq.members]; }
 function rowsForCoach(coach, pool) { return pool.filter(r=>r[C.coach]===coach); }
 function rowsForSquad(sq, pool) { return pool.filter(r=>squadMembers(sq).includes(r[C.coach])); }
 
+// ── OBLIGATIONS HELPERS ───────────────────────────────────────────────────────
+function isOblRetard(row) { return (row[OBL.etat]||'').trim() === 'En retard'; }
+function isOblAFaire(row) { return !isOblRetard(row) && (row[OBL.etat]||'').trim() !== 'Terminée'; }
+
+function normalizeCoach(name) {
+  return (name||'').trim().toLowerCase().replace(/\s+/g,' ');
+}
+
+function oblForCoach(coachName) {
+  const norm = normalizeCoach(coachName);
+  return oblRows.filter(r => normalizeCoach(r[OBL.coach]) === norm);
+}
+
+function oblForSquad(sq) {
+  const norms = squadMembers(sq).map(normalizeCoach);
+  return oblRows.filter(r => norms.includes(normalizeCoach(r[OBL.coach])));
+}
+
 // ── MAIN BUILD ────────────────────────────────────────────────────────────────
 function buildDashboard() {
   applyFilters();
@@ -382,7 +443,7 @@ function buildDashboard() {
   document.getElementById('lbl-cur').textContent=curLabel;
   if (prevRows.length) { document.getElementById('lbl-prev').style.display='inline-block'; document.getElementById('lbl-prev').textContent='vs '+prevLabel; }
   if (curDate) document.getElementById('lbl-date').textContent = '— mis à jour le ' + curDate;
-  buildGlobal(); buildEquipes(); buildCoaches(); buildProfil(); buildBanques(); buildFlux(); updateTabBadges();
+  buildGlobal(); buildEquipes(); buildCoaches(); buildProfil(); buildBanques(); buildFlux(); buildObligations(); updateTabBadges();
 }
 
 function switchTab(name) {
@@ -397,10 +458,12 @@ function updateTabBadges() {
   const banquesN = curRows.filter(r=>v(r,'bankDeco')>0).length;
   const fluxN    = curRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
   const coachesN = [...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))].length;
+  const oblRetardN = oblRows.filter(isOblRetard).length;
   document.getElementById('t-profil').innerHTML=`Profil <span class="badge-tab">${profilN}</span>`;
   document.getElementById('t-banques').innerHTML=`Banques <span class="badge-tab">${banquesN}</span>`;
   document.getElementById('t-flux').innerHTML=`Alertes Flux <span class="badge-tab">${fluxN}</span>`;
   document.getElementById('t-coaches').innerHTML=`Par Coach <span class="badge-tab">${coachesN}</span>`;
+  if (oblRows.length) document.getElementById('t-obligations').innerHTML=`Obligations <span class="badge-tab">${oblRetardN}</span>`;
 }
 
 // ── GLOBAL ────────────────────────────────────────────────────────────────────
@@ -468,6 +531,42 @@ function buildGlobal() {
         labels:{ boxWidth:12, font:{size:11} } } },
       scales:{x:{beginAtZero:true, ticks:{stepSize:1}}} }
   });
+
+  // Obligations par Famille × État
+  if (oblRows.length) {
+    const familles = [...new Set(oblRows.map(r=>r[OBL.famille]).filter(Boolean))].sort();
+    const etats    = [...new Set(oblRows.map(r=>r[OBL.etat]).filter(Boolean))].sort();
+    const totalRetard = oblRows.filter(isOblRetard).length;
+    const totalAFaire = oblRows.filter(isOblAFaire).length;
+    let oblHtml = `<div class="tbl-wrap" style="margin-top:20px">
+      <div class="tbl-head">
+        <span class="tbl-title">Obligations par Famille × État</span>
+        <span class="tbl-sub">${oblRows.length} obligations · <span style="color:#ef4444;font-weight:700">${totalRetard} en retard</span> · ${totalAFaire} à faire</span>
+      </div>
+      <table><thead><tr><th>Famille</th>`;
+    etats.forEach(e => { oblHtml += `<th>${e}</th>`; });
+    oblHtml += `<th>Total</th></tr></thead><tbody>`;
+    familles.forEach(fam => {
+      const famRows = oblRows.filter(r=>r[OBL.famille]===fam);
+      oblHtml += `<tr><td><strong>${fam}</strong></td>`;
+      etats.forEach(e => {
+        const cnt = famRows.filter(r=>r[OBL.etat]===e).length;
+        const isRet = e === 'En retard';
+        oblHtml += `<td>${cnt > 0 ? (isRet ? `<span class="b-crit">${cnt}</span>` : cnt) : '—'}</td>`;
+      });
+      oblHtml += `<td><strong>${famRows.length}</strong></td></tr>`;
+    });
+    // Total row
+    oblHtml += `<tr style="background:#f9fafb"><td><strong>Total</strong></td>`;
+    etats.forEach(e => {
+      const cnt = oblRows.filter(r=>r[OBL.etat]===e).length;
+      const isRet = e === 'En retard';
+      oblHtml += `<td><strong>${cnt > 0 ? (isRet ? `<span class="b-crit">${cnt}</span>` : cnt) : '—'}</strong></td>`;
+    });
+    oblHtml += `<td><strong>${oblRows.length}</strong></td></tr>`;
+    oblHtml += `</tbody></table></div>`;
+    document.getElementById('p-global').innerHTML += oblHtml;
+  }
 }
 
 // ── EQUIPES ───────────────────────────────────────────────────────────────────
@@ -514,6 +613,7 @@ function buildEquipes() {
     </div>`;
 
     // Squads table
+    const hasObl = oblRows.length > 0;
     html+=`<div class="tbl-wrap" style="margin-bottom:20px">
       <div class="tbl-head"><span class="tbl-title">Détail par squad</span></div>
       <table id="tbl-squads"><thead><tr>
@@ -524,6 +624,7 @@ function buildEquipes() {
         ${thS('tbl-squads',4,'Banques déco')}
         ${thS('tbl-squads',5,'Alertes flux')}
         ${prevRows.length?'<th>Δ flux</th>':''}
+        ${hasObl?`${thS('tbl-squads',prevRows.length?7:6,'Obl. en retard')}${thS('tbl-squads',prevRows.length?8:7,'Obl. à faire')}`:''}
       </tr></thead><tbody>`;
 
     for (const sq of (tribe.squads||[])) {
@@ -535,6 +636,9 @@ function buildEquipes() {
       const bk=sRows.filter(r=>v(r,'bankDeco')>0).length;
       const fl=sRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
       const pFl=pSRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+      const sqObl = hasObl ? oblForSquad(sq) : [];
+      const sqRet = sqObl.filter(isOblRetard).length;
+      const sqAFaire = sqObl.filter(isOblAFaire).length;
       html+=`<tr>
         <td><span class="squad-dot" style="background:${sq.color}"></span><strong>${sq.name}</strong>
           <span style="font-size:11px;color:#9ca3af"> — ${sq.leader.split(' ')[0]} +${sq.members.length}</span></td>
@@ -543,6 +647,7 @@ function buildEquipes() {
         <td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td>
         <td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>
         ${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}
+        ${hasObl?`<td>${sqRet>0?`<span class="b-crit">${sqRet}</span>`:'—'}</td><td>${sqAFaire>0?sqAFaire:'—'}</td>`:''}
       </tr>`;
     }
 
@@ -556,6 +661,9 @@ function buildEquipes() {
       const bk=sRows.filter(r=>v(r,'bankDeco')>0).length;
       const fl=sRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
       const pFl=pSRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+      const cObl = hasObl ? oblForCoach(name) : [];
+      const cRet = cObl.filter(isOblRetard).length;
+      const cAFaire = cObl.filter(isOblAFaire).length;
       html+=`<tr>
         <td><span class="squad-dot" style="background:#6366f1"></span><strong>${name}</strong>
           <span style="font-size:11px;color:#9ca3af"> (tribe leader)</span></td>
@@ -564,6 +672,7 @@ function buildEquipes() {
         <td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td>
         <td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>
         ${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}
+        ${hasObl?`<td>${cRet>0?`<span class="b-crit">${cRet}</span>`:'—'}</td><td>${cAFaire>0?cAFaire:'—'}</td>`:''}
       </tr>`;
     }
     // Standalone
@@ -575,6 +684,9 @@ function buildEquipes() {
       const bk=sRows.filter(r=>v(r,'bankDeco')>0).length;
       const fl=sRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
       const pFl=pSRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+      const cObl = hasObl ? oblForCoach(name) : [];
+      const cRet = cObl.filter(isOblRetard).length;
+      const cAFaire = cObl.filter(isOblAFaire).length;
       html+=`<tr>
         <td><span class="squad-dot" style="background:#8b5cf6"></span>${name}
           <span style="font-size:11px;color:#9ca3af"> (standalone)</span></td>
@@ -583,6 +695,7 @@ function buildEquipes() {
         <td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td>
         <td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>
         ${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}
+        ${hasObl?`<td>${cRet>0?`<span class="b-crit">${cRet}</span>`:'—'}</td><td>${cAFaire>0?cAFaire:'—'}</td>`:''}
       </tr>`;
     }
     html+=`</tbody></table></div>`;
@@ -605,6 +718,7 @@ function buildEquipes() {
             ${thS('tbl-sq-'+sq.name.replace(' ',''),4,'Banques déco')}
             ${thS('tbl-sq-'+sq.name.replace(' ',''),5,'Alertes flux')}
             ${prevRows.length?`<th>Δ flux</th>`:''}
+            ${hasObl?`${thS('tbl-sq-'+sq.name.replace(/ /g,''),prevRows.length?7:6,'Obl. en retard')}${thS('tbl-sq-'+sq.name.replace(/ /g,''),prevRows.length?8:7,'Obl. à faire')}`:''}
           </tr></thead><tbody>`;
       for (const coach of squadMembers(sq)) {
         const cRows=rowsForCoach(coach,curRows), pCRows=rowsForCoach(coach,prevRows);
@@ -616,6 +730,9 @@ function buildEquipes() {
         const fl=cRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
         const pFl=pCRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
         const isLeader=coach===sq.leader;
+        const cObl = hasObl ? oblForCoach(coach) : [];
+        const cRet = cObl.filter(isOblRetard).length;
+        const cAFaire = cObl.filter(isOblAFaire).length;
         html+=`<tr>
           <td>${isLeader?'👑 ':'&nbsp;&nbsp;'}${coach}</td>
           <td>${cnt}</td><td>${avg}%</td>
@@ -623,6 +740,7 @@ function buildEquipes() {
           <td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td>
           <td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>
           ${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}
+          ${hasObl?`<td>${cRet>0?`<span class="b-crit">${cRet}</span>`:'—'}</td><td>${cAFaire>0?cAFaire:'—'}</td>`:''}
         </tr>`;
       }
       html+=`</tbody></table></div></div>`;
@@ -634,6 +752,7 @@ function buildEquipes() {
 // ── PAR COACH ────────────────────────────────────────────────────────────────
 function buildCoaches() {
   const coaches=[...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))].sort();
+  const hasObl = oblRows.length > 0;
   let html=`<div class="tbl-wrap"><div class="tbl-head"><span class="tbl-title">Récapitulatif par coach</span><span class="tbl-sub">${coaches.length} coachs</span></div>
   <table id="tbl-ch"><thead><tr>
     ${thS('tbl-ch',0,'Coach')}
@@ -644,6 +763,7 @@ function buildCoaches() {
     ${thS('tbl-ch',5,'Banques déco')}
     ${thS('tbl-ch',6,'Alertes flux')}
     ${prevRows.length?`<th>Δ flux</th>`:''}
+    ${hasObl?`${thS('tbl-ch',prevRows.length?8:7,'Obl. en retard')}${thS('tbl-ch',prevRows.length?9:8,'Obl. à faire')}`:''}
   </tr></thead><tbody>`;
 
   coaches.forEach(coach=>{
@@ -655,6 +775,9 @@ function buildCoaches() {
     const fl=rows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
     const pFl=pRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
     const sq=coachSquad(coach);
+    const cObl = hasObl ? oblForCoach(coach) : [];
+    const cRet = cObl.filter(isOblRetard).length;
+    const cAFaire = cObl.filter(isOblAFaire).length;
     html+=`<tr>
       <td><strong>${coach}</strong></td>
       <td><span class="squad-dot" style="background:${sq.color}"></span>${sq.squad}</td>
@@ -663,6 +786,7 @@ function buildCoaches() {
       <td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td>
       <td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>
       ${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}
+      ${hasObl?`<td>${cRet>0?`<span class="b-crit">${cRet}</span>`:'—'}</td><td>${cAFaire>0?cAFaire:'—'}</td>`:''}
     </tr>`;
   });
   html+=`</tbody></table></div>`;
@@ -837,15 +961,139 @@ function filterFlux() {
   });
 }
 
+// ── OBLIGATIONS ───────────────────────────────────────────────────────────────
+function buildObligations() {
+  if (!oblRows.length) {
+    document.getElementById('p-obligations').innerHTML=`<div style="text-align:center;padding:60px;color:#9ca3af">
+      <div style="font-size:48px;margin-bottom:16px">📋</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:8px">Pas de données obligations</div>
+      <div style="font-size:13px">Chargez le fichier Obligations_report_W*.csv pour voir les données</div>
+    </div>`;
+    return;
+  }
+
+  const coaches=['Tous les coachs',...[...new Set(oblRows.map(r=>r[OBL.coach]).filter(Boolean))].sort()];
+  const familles=['Toutes les familles',...[...new Set(oblRows.map(r=>r[OBL.famille]).filter(Boolean))].sort()];
+  const etats=['Tous les états',...[...new Set(oblRows.map(r=>r[OBL.etat]).filter(Boolean))].sort()];
+  const totalRetard = oblRows.filter(isOblRetard).length;
+  const totalAFaire = oblRows.filter(isOblAFaire).length;
+
+  let html=`
+  <div class="cards" style="margin-bottom:20px">
+    <div class="card red"><div class="card-value">${totalRetard}</div><div class="card-label">En retard</div></div>
+    <div class="card orange"><div class="card-value">${totalAFaire}</div><div class="card-label">À faire</div></div>
+    <div class="card blue"><div class="card-value">${oblRows.length}</div><div class="card-label">Total obligations</div></div>
+  </div>
+  <div class="filter-bar">
+    <select class="fsel" id="obl-coach" onchange="filterObligations()">
+      ${coaches.map(c=>`<option>${c}</option>`).join('')}
+    </select>
+    <select class="fsel" id="obl-famille" onchange="filterObligations()">
+      ${familles.map(f=>`<option>${f}</option>`).join('')}
+    </select>
+    <select class="fsel" id="obl-etat" onchange="filterObligations()">
+      ${etats.map(e=>`<option>${e}</option>`).join('')}
+    </select>
+    <input class="fsearch" type="text" id="obl-search" placeholder="Rechercher un client…" oninput="filterObligations()">
+  </div>
+  <div class="filter-bar">
+    <label style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:6px">
+      Échéance du
+      <input class="fsel" type="date" id="obl-ech-from" onchange="filterObligations()" style="padding:5px 8px">
+    </label>
+    <label style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:6px">
+      au
+      <input class="fsel" type="date" id="obl-ech-to" onchange="filterObligations()" style="padding:5px 8px">
+    </label>
+    <button class="btn-sm" onclick="document.getElementById('obl-ech-from').value='';document.getElementById('obl-ech-to').value='';filterObligations()">✕ Réinitialiser dates</button>
+  </div>
+  <div class="tbl-wrap">
+    <div class="tbl-head">
+      <span class="tbl-title">Obligations</span>
+      <span class="tbl-sub" id="obl-count">${oblRows.length} obligations</span>
+    </div>
+    <table id="tbl-obl"><thead><tr>
+      ${thS('tbl-obl',0,'Coach')}
+      ${thS('tbl-obl',1,'Famille')}
+      ${thS('tbl-obl',2,'Déclaration')}
+      ${thS('tbl-obl',3,'Entreprise')}
+      ${thS('tbl-obl',4,'État')}
+      ${thS('tbl-obl',5,'Échéance')}
+      <th>Statut</th>
+    </tr></thead><tbody id="obl-tbody">`;
+
+  oblRows.forEach(row=>{
+    const etat = (row[OBL.etat]||'').trim();
+    const etatBadge = etat==='En retard'
+      ? `<span class="b-crit">${etat}</span>`
+      : etat==='Terminée'
+        ? `<span class="b-ok">${etat}</span>`
+        : `<span class="b-warn">${etat}</span>`;
+    // Stocker l'échéance en format ISO (yyyy-mm-dd) pour le filtrage
+    const rawEch = (row[OBL.echeance]||'').trim();
+    const isoEch = parseEcheanceISO(rawEch);
+    html+=`<tr class="obl-row"
+      data-coach="${(row[OBL.coach]||'').trim()}"
+      data-famille="${(row[OBL.famille]||'').trim()}"
+      data-etat="${etat}"
+      data-co="${(row[OBL.entreprise]||'').toLowerCase()}"
+      data-ech="${isoEch}">
+      <td>${row[OBL.coach]||'—'}</td>
+      <td>${row[OBL.famille]||'—'}</td>
+      <td>${row[OBL.declaration]||'—'}</td>
+      <td>${row[OBL.entreprise]||'—'}</td>
+      <td>${etatBadge}</td>
+      <td>${rawEch||'—'}</td>
+      <td>${row[OBL.statut]||'—'}</td>
+    </tr>`;
+  });
+
+  html+=`</tbody></table></div>`;
+  document.getElementById('p-obligations').innerHTML=html;
+}
+
+// Parse "dd/mm/yyyy" → "yyyy-mm-dd" pour comparaison avec input[type=date]
+function parseEcheanceISO(str) {
+  if (!str) return '';
+  const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+}
+
+function filterObligations() {
+  const cf=(document.getElementById('obl-coach')?.value||'Tous les coachs');
+  const ff=(document.getElementById('obl-famille')?.value||'Toutes les familles');
+  const ef=(document.getElementById('obl-etat')?.value||'Tous les états');
+  const cs=(document.getElementById('obl-search')?.value||'').toLowerCase();
+  const echFrom=(document.getElementById('obl-ech-from')?.value||'');
+  const echTo  =(document.getElementById('obl-ech-to')?.value||'');
+  let cnt=0;
+  document.querySelectorAll('.obl-row').forEach(r=>{
+    const ech = r.dataset.ech || '';
+    const show =
+      (cf==='Tous les coachs'     || r.dataset.coach===cf)    &&
+      (ff==='Toutes les familles' || r.dataset.famille===ff)  &&
+      (ef==='Tous les états'      || r.dataset.etat===ef)     &&
+      (!cs     || r.dataset.co.includes(cs))                  &&
+      (!echFrom || ech >= echFrom)                            &&
+      (!echTo   || ech <= echTo);
+    r.style.display=show?'':'none';
+    if(show) cnt++;
+  });
+  const countEl=document.getElementById('obl-count');
+  if(countEl) countEl.textContent=`${cnt} obligations`;
+}
+
 // Drag & drop
-['card-cur','card-prev','card-cfg'].forEach(id=>{
+['card-cur','card-prev','card-cfg','card-obl'].forEach(id=>{
   const card=document.getElementById(id);
+  if (!card) return;
   card.addEventListener('dragover',e=>{e.preventDefault();card.classList.add('dragover');});
   card.addEventListener('dragleave',()=>card.classList.remove('dragover'));
   card.addEventListener('drop',e=>{
     e.preventDefault(); card.classList.remove('dragover');
     const file=e.dataTransfer.files[0]; if(!file) return;
     if (id==='card-cfg') { const fi=document.getElementById('f-cfg'); const dt=new DataTransfer(); dt.items.add(file); fi.files=dt.files; loadConfig(fi); return; }
+    if (id==='card-obl') { const fi=document.getElementById('f-obl'); const dt=new DataTransfer(); dt.items.add(file); fi.files=dt.files; loadOblCSV(fi); return; }
     const type=id==='card-cur'?'cur':'prev';
     const fi=document.getElementById('f-'+type);
     const dt=new DataTransfer(); dt.items.add(file); fi.files=dt.files;
