@@ -110,7 +110,7 @@
 <nav id="main-nav" style="display:none">
   <button class="active" data-tab="global" onclick="switchTab('global')">Vue globale</button>
   <button data-tab="equipes" onclick="switchTab('equipes')">Équipes</button>
-  <button data-tab="coaches" onclick="switchTab('coaches')">Coaches</button>
+  <button data-tab="coaches" onclick="switchTab('coaches')">Coachs</button>
   <button data-tab="obligations" onclick="switchTab('obligations')">Obligations</button>
 </nav>
 
@@ -278,7 +278,7 @@ function generate(){
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(name){
   ['global','equipes','coaches','obligations'].forEach(function(t){
-    document.getElementById('tab-'+t).style.display = t===name ? 'block' : 'none';
+    document.getElementById('tab-'+t).style.display = (t===name) ? 'block' : 'none';
   });
   document.querySelectorAll('nav button').forEach(function(b){
     b.classList.toggle('active', b.dataset.tab === name);
@@ -363,8 +363,14 @@ function getCoachesForSquad(squadName){
 function detectCoachCol(){
   if(state.kpiRows.length === 0) return 'Coach';
   var keys = Object.keys(state.kpiRows[0]);
-  var candidates = ['Coach','coach','Prénom Nom','Prenom Nom','Nom','nom','Name','name','User','user'];
+  var candidates = ['Coach','coach','Prénom Nom','Prenom Nom','Nom complet','nom_complet','Collaborateur','collaborateur','Nom','nom','Prénom','prenom','Name','name','User','user','Email','email'];
   for(var i=0;i<candidates.length;i++) if(keys.indexOf(candidates[i])>=0) return candidates[i];
+  // Partial match
+  var kw = ['coach','nom','prenom','name','user','collaborateur'];
+  for(var j=0;j<keys.length;j++){
+    var kl = keys[j].toLowerCase();
+    for(var k=0;k<kw.length;k++) if(kl.indexOf(kw[k])>=0) return keys[j];
+  }
   return keys[0];
 }
 
@@ -397,12 +403,12 @@ function buildGlobal(){
   // Detect columns
   var keys = Object.keys(rows[0] || {});
   var cols = {
-    dossiers: findCol(keys, ['Dossiers assignés','Dossiers assignes','dossiers_assignes','Dossiers','dossiers']),
-    retard:   findCol(keys, ['Dossiers en retard','dossiers_retard','En retard','en_retard']),
-    bilans:   findCol(keys, ['Bilans produits','bilans_produits','Bilans','bilans']),
-    taux:     findCol(keys, ['Taux de traitement','taux_traitement','Taux traitement','taux']),
-    nps:      findCol(keys, ['NPS','nps','Score NPS']),
-    liasses:  findCol(keys, ['Liasses fiscales','liasses_fiscales','Liasses','liasses'])
+    dossiers: findCol(keys, ['Dossiers assignés','Dossiers assignes','dossiers_assignes','Dossiers','dossiers','Nb dossiers','Portefeuille','portefeuille']) || findColPartial(keys,'dossier'),
+    retard:   findCol(keys, ['Dossiers en retard','dossiers_retard','En retard','en_retard','Retard','retard']) || findColPartial(keys,'retard'),
+    bilans:   findCol(keys, ['Bilans produits','bilans_produits','Bilans','bilans','Bilan']) || findColPartial(keys,'bilan'),
+    taux:     findCol(keys, ['Taux de traitement','taux_traitement','Taux traitement','taux','Taux','% traitement']) || findColPartial(keys,'taux'),
+    nps:      findCol(keys, ['NPS','nps','Score NPS','score_nps']) || findColPartial(keys,'nps'),
+    liasses:  findCol(keys, ['Liasses fiscales','liasses_fiscales','Liasses','liasses','Liasse']) || findColPartial(keys,'liasse')
   };
 
   var totDossiers = sumCol(rows, cols.dossiers);
@@ -505,7 +511,25 @@ function kpiCard(label, value, sub, deltaHtmlStr){
 }
 
 function findCol(keys, candidates){
+  // Exact match first
   for(var i=0;i<candidates.length;i++) if(keys.indexOf(candidates[i])>=0) return candidates[i];
+  // Partial case-insensitive match
+  var lc = candidates.map(function(c){return c.toLowerCase().replace(/[éèê]/g,'e').replace(/[àâ]/g,'a').replace(/[ùû]/g,'u').replace(/[îï]/g,'i').replace(/[ôö]/g,'o');});
+  for(var j=0;j<keys.length;j++){
+    var kn = keys[j].toLowerCase().replace(/[éèê]/g,'e').replace(/[àâ]/g,'a').replace(/[ùû]/g,'u').replace(/[îï]/g,'i').replace(/[ôö]/g,'o');
+    for(var k=0;k<lc.length;k++){
+      if(kn.indexOf(lc[k])>=0 || lc[k].indexOf(kn)>=0) return keys[j];
+    }
+  }
+  return null;
+}
+
+function findColPartial(keys, keyword){
+  var kw = keyword.toLowerCase().replace(/[éèê]/g,'e').replace(/[àâ]/g,'a').replace(/[ùû]/g,'u');
+  for(var j=0;j<keys.length;j++){
+    var kn = keys[j].toLowerCase().replace(/[éèê]/g,'e').replace(/[àâ]/g,'a').replace(/[ùû]/g,'u');
+    if(kn.indexOf(kw)>=0) return keys[j];
+  }
   return null;
 }
 
@@ -528,13 +552,13 @@ function buildEquipes(){
   var coachCol = detectCoachCol();
   var keys = Object.keys(rows[0] || {});
   var cols = {
-    dossiers: findCol(keys, ['Dossiers assignés','Dossiers assignes','Dossiers','dossiers']),
-    retard:   findCol(keys, ['Dossiers en retard','En retard','en_retard']),
-    bilans:   findCol(keys, ['Bilans produits','Bilans','bilans']),
-    taux:     findCol(keys, ['Taux de traitement','Taux traitement','taux']),
-    nps:      findCol(keys, ['NPS','nps']),
-    liasses:  findCol(keys, ['Liasses fiscales','Liasses','liasses']),
-    squad:    findCol(keys, ['Squad','squad','Equipe','équipe','equipe'])
+    dossiers: findCol(keys, ['Dossiers assignés','Dossiers assignes','Dossiers','dossiers','Nb dossiers','Portefeuille']) || findColPartial(keys,'dossier'),
+    retard:   findCol(keys, ['Dossiers en retard','En retard','en_retard','Retard']) || findColPartial(keys,'retard'),
+    bilans:   findCol(keys, ['Bilans produits','Bilans','bilans','Bilan']) || findColPartial(keys,'bilan'),
+    taux:     findCol(keys, ['Taux de traitement','Taux traitement','taux','Taux','% traitement']) || findColPartial(keys,'taux'),
+    nps:      findCol(keys, ['NPS','nps','Score NPS']) || findColPartial(keys,'nps'),
+    liasses:  findCol(keys, ['Liasses fiscales','Liasses','liasses','Liasse']) || findColPartial(keys,'liasse'),
+    squad:    findCol(keys, ['Squad','squad','Equipe','Équipe','équipe','equipe']) || findColPartial(keys,'equipe') || findColPartial(keys,'squad')
   };
 
   var bySquad = {};
@@ -545,13 +569,17 @@ function buildEquipes(){
   });
   var squads = Object.keys(bySquad).sort();
 
+  // Get all coaches for filter
+  var allCoachesEq = [...new Set(rows.map(function(r){ return r[coachCol]||''; }).filter(Boolean))].sort();
+
   // Build table data
   var tableData = squads.map(function(sq){
     var srows = bySquad[sq];
     var obl = state.oblRows.length > 0 ? oblForSquad(sq) : [];
     return {
       squad: sq,
-      coaches: srows.length,
+      coachs: srows.length,
+      coachList: srows.map(function(r){ return r[coachCol]||''; }),
       dossiers: sumCol(srows, cols.dossiers),
       retard: sumCol(srows, cols.retard),
       bilans: sumCol(srows, cols.bilans),
@@ -565,32 +593,59 @@ function buildEquipes(){
 
   window._equipesData = tableData;
   window._equipesCols = cols;
-  renderEquipesTable(tableData, cols);
+
+  // Build filter UI once
+  var html = '<div class="section-title">Tableau des équipes</div>';
+  html += '<div class="filters">';
+  html += '<div class="filter-group"><label>Coach</label><select id="eq-f-coach" onchange="filterEquipes()"><option value="">Tous</option>';
+  allCoachesEq.forEach(function(c){ html += '<option value="'+escHtml(c)+'">'+escHtml(c)+'</option>'; });
+  html += '</select></div>';
+  html += '<div class="filter-group"><label>Recherche</label><input type="text" id="eq-f-search" placeholder="Équipe…" oninput="filterEquipes()"></div>';
+  html += '</div><div id="eq-table-wrap"></div>';
+  document.getElementById('tab-equipes').innerHTML = html;
+  filterEquipes();
+}
+
+function filterEquipes(){
+  var coach  = document.getElementById('eq-f-coach')  ? document.getElementById('eq-f-coach').value  : '';
+  var search = document.getElementById('eq-f-search') ? document.getElementById('eq-f-search').value.toLowerCase() : '';
+  var data = window._equipesData.filter(function(d){
+    if(coach  && d.coachList.indexOf(coach) < 0) return false;
+    if(search && d.squad.toLowerCase().indexOf(search) < 0) return false;
+    return true;
+  });
+  if(equipesSortCol){
+    data = data.sort(function(a,b){
+      var av=a[equipesSortCol],bv=b[equipesSortCol];
+      if(typeof av==='string') return av.localeCompare(bv)*equipesSortDir;
+      return (av-bv)*equipesSortDir;
+    });
+  }
+  renderEquipesTable(data, window._equipesCols);
 }
 
 function renderEquipesTable(data, cols){
   var hasObl = state.oblRows.length > 0;
-  var html = '<div class="section-title">Tableau des équipes</div>';
-  html += '<div class="tbl-wrap"><table id="tbl-equipes">';
+  var html = '<div class="tbl-wrap"><table id="tbl-equipes">';
   html += '<thead><tr>';
-  html += thS('Équipe','squad',0) + thS('Coaches','coaches',1);
-  if(cols.dossiers) html += thS('Dossiers','dossiers',2);
-  if(cols.retard)   html += thS('En retard','retard',3);
-  if(cols.bilans)   html += thS('Bilans','bilans',4);
-  if(cols.taux)     html += thS('Taux moy.','taux',5);
-  if(cols.nps)      html += thS('NPS','nps',6);
-  if(cols.liasses)  html += thS('Liasses','liasses',7);
+  html += thS('Équipe','squad') + thS('Coachs','coachs');
+  if(cols.dossiers) html += thS('Dossiers','dossiers');
+  if(cols.retard)   html += thS('En retard','retard');
+  if(cols.bilans)   html += thS('Bilans','bilans');
+  if(cols.taux)     html += thS('Taux moy.','taux');
+  if(cols.nps)      html += thS('NPS','nps');
+  if(cols.liasses)  html += thS('Liasses','liasses');
   if(hasObl){
-    html += thS('Obl. en retard','oblRetard',8);
-    html += thS('Obl. à faire','oblAFaire',9);
+    html += thS('Obl. en retard','oblRetard');
+    html += thS('Obl. à faire','oblAFaire');
   }
   html += '</tr></thead><tbody>';
 
   data.forEach(function(d){
     var color = SQUAD_COLORS[d.squad] || '#b2bec3';
     html += '<tr>';
-    html += '<td><div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:'+color+';display:inline-block"></span><strong>'+d.squad+'</strong></div></td>';
-    html += '<td>'+d.coaches+'</td>';
+    html += '<td><div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:'+color+';display:inline-block"></span><strong>'+escHtml(d.squad)+'</strong></div></td>';
+    html += '<td>'+d.coachs+'</td>';
     if(cols.dossiers) html += '<td>'+fmt(d.dossiers)+'</td>';
     if(cols.retard)   html += '<td>'+fmt(d.retard)+'</td>';
     if(cols.bilans)   html += '<td>'+fmt(d.bilans)+'</td>';
@@ -604,10 +659,10 @@ function renderEquipesTable(data, cols){
     html += '</tr>';
   });
   html += '</tbody></table></div>';
-  document.getElementById('tab-equipes').innerHTML = html;
+  document.getElementById('eq-table-wrap').innerHTML = html;
 }
 
-function thS(label, key, idx){
+function thS(label, key){
   var cls = equipesSortCol === key ? (equipesSortDir > 0 ? 'sort-asc' : 'sort-desc') : '';
   return '<th class="'+cls+'" onclick="sortEquipes(\''+key+'\')">'+label+'</th>';
 }
@@ -615,15 +670,10 @@ function thS(label, key, idx){
 function sortEquipes(key){
   if(equipesSortCol === key) equipesSortDir *= -1;
   else { equipesSortCol = key; equipesSortDir = 1; }
-  var data = window._equipesData.slice().sort(function(a,b){
-    var av = a[key], bv = b[key];
-    if(typeof av === 'string') return av.localeCompare(bv) * equipesSortDir;
-    return (av - bv) * equipesSortDir;
-  });
-  renderEquipesTable(data, window._equipesCols);
+  filterEquipes();
 }
 
-// ── Tab: Coaches ──────────────────────────────────────────────────────────────
+// ── Tab: Coachs ───────────────────────────────────────────────────────────────
 var coachesSortCol = null, coachesSortDir = 1;
 
 function buildCoaches(){
@@ -632,17 +682,20 @@ function buildCoaches(){
   var coachCol = detectCoachCol();
   var keys = Object.keys(rows[0] || {});
   var cols = {
-    dossiers: findCol(keys, ['Dossiers assignés','Dossiers assignes','Dossiers','dossiers']),
-    retard:   findCol(keys, ['Dossiers en retard','En retard','en_retard']),
-    bilans:   findCol(keys, ['Bilans produits','Bilans','bilans']),
-    taux:     findCol(keys, ['Taux de traitement','Taux traitement','taux']),
-    nps:      findCol(keys, ['NPS','nps']),
-    liasses:  findCol(keys, ['Liasses fiscales','Liasses','liasses']),
-    squad:    findCol(keys, ['Squad','squad','Equipe','équipe','equipe'])
+    dossiers: findCol(keys, ['Dossiers assignés','Dossiers assignes','Dossiers','dossiers','Nb dossiers','Portefeuille']) || findColPartial(keys,'dossier'),
+    retard:   findCol(keys, ['Dossiers en retard','En retard','en_retard','Retard']) || findColPartial(keys,'retard'),
+    bilans:   findCol(keys, ['Bilans produits','Bilans','bilans','Bilan']) || findColPartial(keys,'bilan'),
+    taux:     findCol(keys, ['Taux de traitement','Taux traitement','taux','Taux','% traitement']) || findColPartial(keys,'taux'),
+    nps:      findCol(keys, ['NPS','nps','Score NPS']) || findColPartial(keys,'nps'),
+    liasses:  findCol(keys, ['Liasses fiscales','Liasses','liasses','Liasse']) || findColPartial(keys,'liasse'),
+    squad:    findCol(keys, ['Squad','squad','Equipe','Équipe','équipe','equipe']) || findColPartial(keys,'equipe') || findColPartial(keys,'squad')
   };
 
   var byCoach = groupBy(rows, coachCol);
   var prevByCoach = prev.length ? groupBy(prev, coachCol) : {};
+  var allSquads = [...new Set(Object.keys(byCoach).map(function(c){
+    return normalizeSquad(getCol(byCoach[c][0], ['Squad','squad','Equipe','Équipe','équipe','equipe']));
+  }))].sort();
 
   var tableData = Object.keys(byCoach).sort().map(function(c){
     var cr = byCoach[c];
@@ -650,7 +703,7 @@ function buildCoaches(){
     var obl = state.oblRows.length > 0 ? oblForCoach(c) : [];
     return {
       coach: c,
-      squad: normalizeSquad(getCol(cr[0], ['Squad','squad','Equipe','équipe','equipe'])),
+      squad: normalizeSquad(getCol(cr[0], ['Squad','squad','Equipe','Équipe','équipe','equipe'])),
       dossiers: sumCol(cr, cols.dossiers),
       retard: sumCol(cr, cols.retard),
       bilans: sumCol(cr, cols.bilans),
@@ -658,8 +711,6 @@ function buildCoaches(){
       nps: avgCol(cr, cols.nps),
       liasses: sumCol(cr, cols.liasses),
       prevDossiers: pr.length ? sumCol(pr, cols.dossiers) : null,
-      prevRetard:   pr.length ? sumCol(pr, cols.retard)   : null,
-      prevTaux:     pr.length ? avgCol(pr, cols.taux)     : null,
       oblRetard: obl.filter(isOblRetard).length,
       oblAFaire: obl.filter(isOblAFaire).length
     };
@@ -667,14 +718,42 @@ function buildCoaches(){
 
   window._coachesData = tableData;
   window._coachesCols = cols;
-  renderCoachesTable(tableData, cols);
+
+  var html = '<div class="section-title">Tableau des coachs</div>';
+  html += '<div class="filters">';
+  html += '<div class="filter-group"><label>Équipe</label><select id="co-f-squad" onchange="filterCoaches()"><option value="">Toutes</option>';
+  allSquads.forEach(function(s){ html += '<option value="'+escHtml(s)+'">'+escHtml(s)+'</option>'; });
+  html += '</select></div>';
+  html += '<div class="filter-group"><label>Recherche</label><input type="text" id="co-f-search" placeholder="Coach…" oninput="filterCoaches()"></div>';
+  html += '</div><div id="co-table-wrap"></div>';
+  document.getElementById('tab-coaches').innerHTML = html;
+  filterCoaches();
+}
+
+function filterCoaches(){
+  var squad  = document.getElementById('co-f-squad')  ? document.getElementById('co-f-squad').value  : '';
+  var search = document.getElementById('co-f-search') ? document.getElementById('co-f-search').value.toLowerCase() : '';
+  var data = window._coachesData.filter(function(d){
+    if(squad  && d.squad !== squad) return false;
+    if(search && d.coach.toLowerCase().indexOf(search) < 0) return false;
+    return true;
+  });
+  if(coachesSortCol){
+    data = data.sort(function(a,b){
+      var av=a[coachesSortCol],bv=b[coachesSortCol];
+      if(av===null||av===undefined) return 1;
+      if(bv===null||bv===undefined) return -1;
+      if(typeof av==='string') return av.localeCompare(bv)*coachesSortDir;
+      return (av-bv)*coachesSortDir;
+    });
+  }
+  renderCoachesTable(data, window._coachesCols);
 }
 
 function renderCoachesTable(data, cols){
   var hasObl = state.oblRows.length > 0;
   var hasPrev = state.prevRows.length > 0;
-  var html = '<div class="section-title">Tableau des coaches</div>';
-  html += '<div class="tbl-wrap"><table id="tbl-coaches">';
+  var html = '<div class="tbl-wrap"><table id="tbl-coaches">';
   html += '<thead><tr>';
   html += cthS('Coach','coach') + cthS('Équipe','squad');
   if(cols.dossiers) html += cthS('Dossiers','dossiers');
@@ -693,8 +772,8 @@ function renderCoachesTable(data, cols){
   data.forEach(function(d){
     var color = SQUAD_COLORS[d.squad] || '#b2bec3';
     html += '<tr>';
-    html += '<td><strong>'+d.coach+'</strong></td>';
-    html += '<td><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:'+color+';display:inline-block"></span>'+d.squad+'</div></td>';
+    html += '<td><strong>'+escHtml(d.coach)+'</strong></td>';
+    html += '<td><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:'+color+';display:inline-block"></span>'+escHtml(d.squad)+'</div></td>';
     if(cols.dossiers) html += '<td>'+fmt(d.dossiers)+'</td>';
     if(hasPrev && cols.dossiers) html += '<td>'+deltaHtml(d.dossiers, d.prevDossiers, true, false)+'</td>';
     if(cols.retard)   html += '<td>'+fmt(d.retard)+'</td>';
@@ -709,7 +788,7 @@ function renderCoachesTable(data, cols){
     html += '</tr>';
   });
   html += '</tbody></table></div>';
-  document.getElementById('tab-coaches').innerHTML = html;
+  document.getElementById('co-table-wrap').innerHTML = html;
 }
 
 function cthS(label, key){
@@ -720,14 +799,7 @@ function cthS(label, key){
 function sortCoaches(key){
   if(coachesSortCol === key) coachesSortDir *= -1;
   else { coachesSortCol = key; coachesSortDir = 1; }
-  var data = window._coachesData.slice().sort(function(a,b){
-    var av = a[key], bv = b[key];
-    if(av === null || av === undefined) return 1;
-    if(bv === null || bv === undefined) return -1;
-    if(typeof av === 'string') return av.localeCompare(bv) * coachesSortDir;
-    return (av - bv) * coachesSortDir;
-  });
-  renderCoachesTable(data, window._coachesCols);
+  filterCoaches();
 }
 
 // ── Tab: Obligations ──────────────────────────────────────────────────────────
