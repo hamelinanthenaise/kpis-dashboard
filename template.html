@@ -3,903 +3,667 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Weekly KPIs</title>
+<title>Dashboard KPIs Acasi</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f6fa;color:#1a1a2e;min-height:100vh}
-  header{background:#fff;border-bottom:1px solid #e8eaf0;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-  header h1{font-size:15px;font-weight:600;color:#1a1a2e;display:flex;align-items:center;gap:8px}
-  .meta{font-size:12px;color:#8892a4}
-  nav{display:flex;gap:4px;padding:0 24px;background:#fff;border-bottom:1px solid #e8eaf0;overflow-x:auto}
-  nav button{padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:#8892a4;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
-  nav button.active{color:#6c5ce7;border-bottom-color:#6c5ce7}
-  nav button:hover:not(.active){color:#1a1a2e}
-  .badge{display:inline-block;background:#e17055;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:4px;vertical-align:middle}
-  .content{padding:24px;max-width:1400px;margin:0 auto}
-
-  /* Upload zone */
-  #upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;gap:24px}
-  #upload-zone h2{font-size:24px;font-weight:700;color:#1a1a2e;display:flex;align-items:center;gap:10px}
-  #upload-zone p{color:#8892a4;font-size:14px}
-  .upload-cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
-  .upload-card{width:200px;padding:24px 16px;border:2px dashed #d0d5e8;border-radius:12px;text-align:center;cursor:pointer;transition:all .2s;background:#fff}
-  .upload-card:hover,.upload-card.loaded{border-color:#6c5ce7;background:#f8f7ff}
-  .upload-card.loaded{border-style:solid}
-  .upload-card .icon{font-size:32px;margin-bottom:12px}
-  .upload-card h3{font-size:13px;font-weight:600;margin-bottom:4px}
-  .upload-card p{font-size:11px;color:#8892a4}
-  .upload-card input{display:none}
-  .upload-card .fname{font-size:11px;color:#6c5ce7;margin-top:6px;word-break:break-all}
-  #btn-generate{padding:12px 32px;background:#6c5ce7;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s}
-  #btn-generate:disabled{background:#d0d5e8;cursor:not-allowed}
-  #btn-generate:not(:disabled):hover{background:#5a4bd1}
-
-  /* Cards */
-  .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:24px}
-  .card{background:#fff;border-radius:12px;padding:20px;border:1px solid #e8eaf0;transition:box-shadow .2s}
-  .card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
-  .card-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:#8892a4;margin-bottom:8px}
-  .card-value{font-size:28px;font-weight:700;color:#1a1a2e;line-height:1}
-  .card-sub{font-size:12px;color:#8892a4;margin-top:6px}
-  .delta{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;margin-top:8px}
-  .delta.up{background:#e8f5e9;color:#2e7d32}
-  .delta.down{background:#fce4e4;color:#c62828}
-  .delta.neutral{background:#f0f0f0;color:#666}
-
-  /* Section titles */
-  .section-title{font-size:16px;font-weight:700;color:#1a1a2e;margin:24px 0 12px;display:flex;align-items:center;gap:8px}
-
-  /* Tables */
-  .tbl-wrap{overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #e8eaf0;margin-bottom:24px}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th{padding:10px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8892a4;background:#fafbfd;border-bottom:1px solid #e8eaf0;white-space:nowrap;cursor:pointer;user-select:none}
-  th:hover{background:#f0f2f8}
-  th.sort-asc::after{content:' ▲';font-size:9px}
-  th.sort-desc::after{content:' ▼';font-size:9px}
-  td{padding:10px 16px;border-bottom:1px solid #f0f2f8;vertical-align:middle}
-  tr:last-child td{border-bottom:none}
-  tr:hover td{background:#fafbfd}
-
-  /* Pills / states */
-  .pill{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600}
-  .pill.retard{background:#fce4e4;color:#c62828}
-  .pill.terminee{background:#e8f5e9;color:#2e7d32}
-  .pill.afaire{background:#fff3e0;color:#e65100}
-  .pill.autre{background:#f0f2f8;color:#555}
-
-  /* Coach/squad header cards */
-  .squad-header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
-  .squad-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-  .coach-name{font-size:15px;font-weight:700}
-  .squad-name{font-size:12px;color:#8892a4;font-weight:500}
-
-  /* Filters */
-  .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
-  .filters select,.filters input[type=text],.filters input[type=date]{padding:7px 12px;border:1px solid #d0d5e8;border-radius:8px;font-size:13px;background:#fff;color:#1a1a2e;outline:none}
-  .filters select:focus,.filters input:focus{border-color:#6c5ce7}
-  .filters label{font-size:12px;color:#8892a4;font-weight:600}
-  .filter-group{display:flex;align-items:center;gap:6px}
-
-  /* Chart container */
-  .chart-wrap{background:#fff;border-radius:12px;border:1px solid #e8eaf0;padding:20px;margin-bottom:24px}
-  .chart-wrap canvas{max-height:280px}
-
-  /* Squad colors */
-  .c-prod1{background:#6c5ce7}
-  .c-prod2{background:#0984e3}
-  .c-prod3{background:#e17055}
-  .c-prod4{background:#a29bfe}
-  .c-leg1{background:#00b894}
-  .c-other{background:#b2bec3}
-
-  /* Responsive */
-  @media(max-width:600px){
-    .upload-cards{flex-direction:column;align-items:center}
-    .content{padding:12px}
-  }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f6fa; color: #1a1a2e; font-size: 14px; }
+#upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 24px; padding: 40px; }
+.upload-title { font-size: 24px; font-weight: 700; }
+.upload-subtitle { color: #6b7280; font-size: 15px; text-align: center; }
+.upload-cards { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.upload-card { background: white; border: 2px dashed #d1d5db; border-radius: 12px; padding: 24px 32px; text-align: center; cursor: pointer; transition: all .2s; min-width: 220px; max-width: 240px; }
+.upload-card:hover, .upload-card.dragover { border-color: #6366f1; background: #f5f3ff; }
+.upload-card.loaded { border-color: #10b981; border-style: solid; background: #f0fdf4; }
+.upload-card .icon { font-size: 32px; margin-bottom: 10px; }
+.upload-card .label { font-weight: 600; font-size: 14px; color: #374151; }
+.upload-card .sublabel { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+.upload-card .file-name { font-size: 11px; color: #10b981; margin-top: 8px; font-weight: 600; word-break: break-all; }
+.btn-go { background: #6366f1; color: white; border: none; padding: 14px 40px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.btn-go:hover { background: #4f46e5; }
+.btn-go:disabled { background: #d1d5db; cursor: not-allowed; }
+input[type=file] { display: none; }
+#dashboard { display: none; }
+.header { background: white; border-bottom: 1px solid #e5e7eb; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.header-title { font-size: 17px; font-weight: 700; }
+.pill { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; color: white; }
+.pill-cur { background: #6366f1; }
+.pill-prev { background: #9ca3af; }
+.update-date { font-size: 11px; color: #9ca3af; }
+.btn-sm { background: none; border: 1px solid #d1d5db; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; color: #6b7280; }
+.btn-sm:hover { background: #f9fafb; }
+.tabs { display: flex; gap: 0; background: white; border-bottom: 1px solid #e5e7eb; padding: 0 24px; position: sticky; top: 53px; z-index: 99; overflow-x: auto; }
+.tab { padding: 12px 18px; cursor: pointer; font-size: 13px; font-weight: 500; color: #6b7280; border-bottom: 3px solid transparent; white-space: nowrap; }
+.tab:hover { color: #374151; }
+.tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+.badge-tab { background: #fef2f2; color: #ef4444; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 5px; }
+.content { padding: 20px 24px; }
+.panel { display: none; }
+.panel.active { display: block; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.card { background: white; border-radius: 10px; padding: 18px; border-left: 4px solid #e5e7eb; }
+.card.green { border-left-color: #10b981; }
+.card.red { border-left-color: #ef4444; }
+.card.orange { border-left-color: #f59e0b; }
+.card.blue { border-left-color: #6366f1; }
+.card-value { font-size: 30px; font-weight: 700; line-height: 1; }
+.card-label { font-size: 11px; color: #6b7280; margin-top: 5px; }
+.card-delta { font-size: 11px; margin-top: 3px; }
+.up { color: #ef4444; } .dn { color: #10b981; } .eq { color: #9ca3af; }
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+.chart-box { background: white; border-radius: 10px; padding: 18px; }
+.chart-title { font-weight: 600; font-size: 13px; margin-bottom: 14px; color: #374151; }
+canvas { max-height: 260px; }
+.tbl-wrap { background: white; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+.tbl-head { padding: 14px 18px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tbl-title { font-weight: 600; font-size: 14px; }
+.tbl-sub { font-size: 12px; color: #9ca3af; }
+table { width: 100%; border-collapse: collapse; }
+th { background: #f9fafb; padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; white-space: nowrap; user-select: none; }
+th:hover { background: #f3f4f6; }
+td { padding: 9px 14px; border-top: 1px solid #f3f4f6; font-size: 13px; }
+tr:hover td { background: #fafafa; }
+.b-crit { background: #fef2f2; color: #ef4444; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.b-warn { background: #fff7ed; color: #f59e0b; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.b-ok { background: #f0fdf4; color: #10b981; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.b-persist { background: #fef2f2; color: #dc2626; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid #fca5a5; }
+.squad-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.link { color: #6366f1; text-decoration: none; font-size: 11px; }
+.link:hover { text-decoration: underline; }
+.squad-section { margin-bottom: 20px; }
+.squad-header { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 10px 10px 0 0; color: white; font-weight: 600; font-size: 14px; }
+.squad-header .squad-meta { margin-left: auto; font-size: 12px; opacity: .85; }
+.squad-body { background: white; border-radius: 0 0 10px 10px; overflow: hidden; }
+.alert-group { margin-bottom: 20px; }
+.alert-group-title { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.alert-cnt { background: #fef2f2; color: #ef4444; border-radius: 10px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
+.alert-zero { color: #10b981; }
+.filter-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.fsel { padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px; background: white; font-size: 12px; color: #374151; cursor: pointer; }
+.fsearch { padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px; background: white; font-size: 12px; color: #374151; min-width: 180px; }
+.flux-nav { position: sticky; top: 105px; z-index: 90; background: #f5f6fa; padding: 8px 0 10px; margin-bottom: 16px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.flux-nav::-webkit-scrollbar { display: none; }
+.flux-pill { flex-shrink: 0; display: flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #e5e7eb; background: white; color: #6b7280; transition: all .15s; white-space: nowrap; }
+.flux-pill:hover { border-color: #6366f1; color: #6366f1; }
+.flux-pill.active { background: #6366f1; color: white; border-color: #6366f1; }
+.flux-pill.has-alert { border-color: #fca5a5; color: #ef4444; }
+.flux-pill.has-alert.active { background: #ef4444; border-color: #ef4444; color: white; }
+.flux-pill .pcount { font-size: 11px; font-weight: 700; opacity: .8; }
+.obl-no-data { color: #9ca3af; font-size: 13px; font-style: italic; padding: 16px 0; }
+@media (max-width: 768px) { .charts-row { grid-template-columns: 1fr; } .cards { grid-template-columns: repeat(2, 1fr); } }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>📊 Weekly KPIs</h1>
-  <div class="meta" id="meta-info"></div>
-</header>
-<nav id="main-nav" style="display:none">
-  <button class="active" data-tab="global" onclick="switchTab('global')">Vue globale</button>
-  <button data-tab="equipes" onclick="switchTab('equipes')">Équipes</button>
-  <button data-tab="coaches" onclick="switchTab('coaches')">Coachs</button>
-  <button data-tab="obligations" onclick="switchTab('obligations')">Obligations</button>
-</nav>
-
-<div id="app">
-  <!-- Upload zone -->
-  <div id="upload-zone">
-    <h2>📊 Dashboard KPIs Acasi</h2>
-    <p>Chargez vos fichiers pour générer le dashboard</p>
-    <div class="upload-cards">
-      <label class="upload-card" id="card-kpi">
-        <input type="file" accept=".csv" onchange="loadFile(this,'kpi')">
-        <div class="icon">📅</div>
-        <h3>Semaine courante *</h3>
-        <p>Weekly_user_kpis_W*.csv</p>
-        <div class="fname" id="fname-kpi"></div>
-      </label>
-      <label class="upload-card" id="card-prev">
-        <input type="file" accept=".csv" onchange="loadFile(this,'prev')">
-        <div class="icon">🕐</div>
-        <h3>Semaine précédente</h3>
-        <p>Optionnel — deltas</p>
-        <div class="fname" id="fname-prev"></div>
-      </label>
-      <label class="upload-card" id="card-config">
-        <input type="file" accept=".json" onchange="loadFile(this,'config')">
-        <div class="icon">⚙️</div>
-        <h3>Config équipes</h3>
-        <p>teams-config.json</p>
-        <p>Optionnel</p>
-        <div class="fname" id="fname-config"></div>
-      </label>
-      <label class="upload-card" id="card-obl">
-        <input type="file" accept=".csv" onchange="loadFile(this,'obl')">
-        <div class="icon">📋</div>
-        <h3>Obligations</h3>
-        <p>Obligations_report_W*.csv</p>
-        <p>Optionnel</p>
-        <div class="fname" id="fname-obl"></div>
-      </label>
+<div id="upload-zone" style="display:none">
+  <div class="upload-title">📊 Dashboard KPIs Acasi</div>
+  <div class="upload-subtitle">Chargez vos fichiers pour générer le dashboard</div>
+  <div class="upload-cards">
+    <div class="upload-card" id="card-cur" onclick="document.getElementById('f-cur').click()">
+      <div class="icon">📅</div><div class="label">Semaine courante *</div>
+      <div class="sublabel">Weekly_user_kpis_W__.csv</div>
+      <div class="file-name" id="n-cur"></div>
     </div>
-    <button id="btn-generate" disabled onclick="generate()">Générer le dashboard →</button>
+    <div class="upload-card" id="card-prev" onclick="document.getElementById('f-prev').click()">
+      <div class="icon">🕐</div><div class="label">Semaine précédente</div>
+      <div class="sublabel">Optionnel — deltas</div>
+      <div class="file-name" id="n-prev"></div>
+    </div>
+    <div class="upload-card" id="card-obl" onclick="document.getElementById('f-obl').click()">
+      <div class="icon">📋</div><div class="label">Obligations</div>
+      <div class="sublabel">Optionnel — obligations.csv</div>
+      <div class="file-name" id="n-obl"></div>
+    </div>
+    <div class="upload-card" id="card-cfg" onclick="document.getElementById('f-cfg').click()">
+      <div class="icon">⚙️</div><div class="label">Config équipes</div>
+      <div class="sublabel">teams-config.json — Optionnel</div>
+      <div class="file-name" id="n-cfg"></div>
+    </div>
   </div>
+  <input type="file" id="f-cur"  accept=".csv"  onchange="loadCSV('cur',this)">
+  <input type="file" id="f-prev" accept=".csv"  onchange="loadCSV('prev',this)">
+  <input type="file" id="f-obl"  accept=".csv"  onchange="loadCSV('obl',this)">
+  <input type="file" id="f-cfg"  accept=".json" onchange="loadConfig(this)">
+  <button class="btn-go" id="btn-go" disabled onclick="buildDashboard()">Générer le dashboard →</button>
+</div>
 
-  <!-- Dashboard -->
-  <div id="dashboard" style="display:none">
-    <div class="content" id="tab-global"></div>
-    <div class="content" id="tab-equipes" style="display:none"></div>
-    <div class="content" id="tab-coaches" style="display:none"></div>
-    <div class="content" id="tab-obligations" style="display:none"></div>
+<div id="dashboard">
+  <div class="header">
+    <div class="header-left">
+      <div class="header-title">Dashboard KPIs</div>
+      <span class="pill pill-cur" id="lbl-cur"></span>
+      <span class="pill pill-prev" id="lbl-prev" style="display:none"></span>
+      <span class="update-date" id="lbl-date"></span>
+    </div>
+    <button class="btn-sm" onclick="resetApp()">⟲ Changer les fichiers</button>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('global')">Vue Globale</div>
+    <div class="tab" onclick="switchTab('equipes')" id="t-equipes">Par Équipe</div>
+    <div class="tab" onclick="switchTab('coaches')" id="t-coaches">Par Coach</div>
+    <div class="tab" onclick="switchTab('profil')"  id="t-profil">Profil</div>
+    <div class="tab" onclick="switchTab('banques')" id="t-banques">Banques</div>
+    <div class="tab" onclick="switchTab('flux')"    id="t-flux">Alertes Flux</div>
+    <div class="tab" onclick="switchTab('obl')"     id="t-obl">Obligations</div>
+  </div>
+  <div class="content">
+    <div id="p-global"  class="panel active"></div>
+    <div id="p-equipes" class="panel"></div>
+    <div id="p-coaches" class="panel"></div>
+    <div id="p-profil"  class="panel"></div>
+    <div id="p-banques" class="panel"></div>
+    <div id="p-flux"    class="panel"></div>
+    <div id="p-obl"     class="panel"></div>
   </div>
 </div>
 
 <script>
-// ── State ────────────────────────────────────────────────────────────────────
-var state = {
-  kpiRows: [],
-  prevRows: [],
-  oblRows: [],
-  teamsConfig: null,
-  filename: '__FILENAME__',
-  date: '__DATE__'
+// ── CONFIG ─────────────────────────────────────────────────────────────────────
+let CFG = {
+  excludedCoaches: ["Jonathan Cohen","Hajar Meziane","Aude amigues","Samuel Kabbaj"],
+  excludedForms:   ["Micro-entrepreneur"],
+  tribes: [{
+    name: "Tribe 1", leader: "Brice Tandu",
+    squads: [
+      { name:"Squad Orange", color:"#f97316", leader:"Kadi Camara",        members:["Lassana Sacko","Célia Allo"] },
+      { name:"Squad Rose",   color:"#ec4899", leader:"Gabrielle Vaillant", members:["Samara Debanino"] },
+      { name:"Squad Rouge",  color:"#ef4444", leader:"Zina Alami",         members:["Imane Hamoumou","Saad Padavia"] },
+      { name:"Squad Bleue",  color:"#3b82f6", leader:"Amine Missoum",      members:["Adil Daoudi","Arthur Le Calvez"] }
+    ],
+    standalone: ["Léa Menegoz"]
+  }]
 };
 
-// ── Obligations column constants ──────────────────────────────────────────────
-var OBL = {
-  FAMILLE:    'FAMILLE',
-  DECLARATION:'DÉCLARATION',
-  ENTREPRISE: 'ENTREPRISE',
-  ETAT:       'ÉTAT',
-  ECHEANCE:   'ÉCHÉANCE',
-  STATUT:     'STATUT',
-  COACH:      'COACH'
+// ── DATA ───────────────────────────────────────────────────────────────────────
+let allCurRows=[],allPrevRows=[],curRows=[],prevRows=[],allOblRows=[],oblRows=[];
+let curLabel='',prevLabel='',curDate='';
+let charts={};
+let OC={};
+
+// ── COLUMN MAP ─────────────────────────────────────────────────────────────────
+const C = {
+  coach:'coach responsable', company:"nom de l'entreprise", url:'profil Bacasi',
+  forme:'forme sociale', completion:'% de complétion du profil',
+  bankDeco:'banque(s) deconnectee(s) depuis 30+ jours',
+  txCat:'transactions a categoriser', txMatch:'transactions a matcher',
+  txNonRappr:'transactions rapprochees non rapprochables',
+  virInternes:'virements internes non nuls', achatsIncomp:'achats incomplets',
+  achatsCat:'achats a categoriser', achatsMatch:'achats a matcher',
+  achatsDouble:'achats en double', immoVerif:'immobilisations a verifier',
+  immoPot:'immobilisations potentielles', ventesNR:'ventes non rapprochees',
 };
 
-// ── Squad mapping ─────────────────────────────────────────────────────────────
-var SQUAD_MAP = {
-  'Rouge':'PROD-1','rouge':'PROD-1',
-  'Bleue':'PROD-2','bleue':'PROD-2',
-  'Orange':'PROD-3','orange':'PROD-3',
-  'Violet':'PROD-4','violet':'PROD-4','Rose':'PROD-4','rose':'PROD-4',
-  'LEG-1':'LEG-1','leg-1':'LEG-1','Leg-1':'LEG-1',
-  'PROD-1':'PROD-1','PROD-2':'PROD-2','PROD-3':'PROD-3','PROD-4':'PROD-4'
-};
-var SQUAD_COLORS = {'PROD-1':'#6c5ce7','PROD-2':'#0984e3','PROD-3':'#e17055','PROD-4':'#a29bfe','LEG-1':'#00b894'};
-var SQUAD_CSS = {'PROD-1':'c-prod1','PROD-2':'c-prod2','PROD-3':'c-prod3','PROD-4':'c-prod4','LEG-1':'c-leg1'};
+const ALERTS = [
+  {key:'txCat',       label:'Tx à catégoriser',               op:'>',  t:50},
+  {key:'txMatch',     label:'Tx à matcher',                   op:'>',  t:50},
+  {key:'txNonRappr',  label:'Tx rapproch. non rapprochables', op:'>',  t:50},
+  {key:'virInternes', label:'Virements internes non nuls',    op:'==', t:1 },
+  {key:'achatsIncomp',label:'Achats incomplets',              op:'>',  t:10},
+  {key:'achatsCat',   label:'Achats à catégoriser',           op:'>',  t:20},
+  {key:'achatsMatch', label:'Achats à matcher',               op:'>',  t:20},
+  {key:'achatsDouble',label:'Achats en double',               op:'>',  t:10},
+  {key:'immoVerif',   label:'Immobilisations à vérifier',     op:'>',  t:1 },
+  {key:'immoPot',     label:'Immobilisations potentielles',   op:'>',  t:1 },
+  {key:'ventesNR',    label:'Ventes non rapprochées',         op:'>',  t:20},
+];
 
-function normalizeSquad(raw){
-  if(!raw) return 'Autre';
-  var s = String(raw).trim();
-  return SQUAD_MAP[s] || s;
+// ── INIT & AUTO-LOAD ───────────────────────────────────────────────────────────
+async function init() {
+  if (window.DASHBOARD_DATA_B64 && window.DASHBOARD_DATA_B64.curCSV) {
+    const b64=window.DASHBOARD_DATA_B64;
+    const dec=s=>new TextDecoder('utf-8').decode(Uint8Array.from(atob(s),c=>c.charCodeAt(0)));
+    window.DASHBOARD_DATA = {
+      curFile:b64.curFile||'', curDate:b64.curDate||'',
+      curCSV:dec(b64.curCSV), prevFile:null, prevDate:null, prevCSV:null,
+      oblCSV:(b64.oblCSV&&b64.oblCSV!=='__OBLCSV__')?dec(b64.oblCSV):null
+    };
+  }
+  if (window.DASHBOARD_DATA&&window.DASHBOARD_DATA.curCSV){autoLoad(window.DASHBOARD_DATA);return;}
+  if (location.protocol==='http:'||location.protocol==='https:') {
+    try{const r=await fetch('../data/latest.json');if(r.ok){const m=await r.json();if(m.curCSV){autoLoad(m);return;}}}catch(e){}
+  }
+  document.getElementById('upload-zone').style.display='flex';
 }
 
-// ── Auto-load from injected base64 ────────────────────────────────────────────
-(function autoLoad(){
-  var b64csv = '__CSV__';
-  var b64obl = '__OBLCSV__';
-  if(b64csv === '__CSV__') return; // still a template placeholder
-  try{
-    var csvText = new TextDecoder('utf-8').decode(Uint8Array.from(atob(b64csv), c=>c.charCodeAt(0)));
-    var parsed = Papa.parse(csvText, {header:true, skipEmptyLines:true});
-    state.kpiRows = parsed.data;
-    state.filename = '__FILENAME__';
-    state.date = '__DATE__';
-    document.getElementById('meta-info').textContent = '__FILENAME__' + ' — ' + '__DATE__';
-  } catch(e){ console.error('autoLoad kpi error', e); return; }
-  if(b64obl && b64obl !== '__OBLCSV__'){
-    try{
-      var oblText = new TextDecoder('utf-8').decode(Uint8Array.from(atob(b64obl), c=>c.charCodeAt(0)));
-      var oblParsed = Papa.parse(oblText, {header:true, skipEmptyLines:true});
-      state.oblRows = oblParsed.data;
-    } catch(e){ console.error('autoLoad obl error', e); }
-  }
-  generate();
-})();
+function autoLoad(m) {
+  curDate=m.curDate||'';
+  curLabel=(m.curFile||'').replace(/weekly_user_kpis_/i,'').replace('.csv','').toUpperCase();
+  prevLabel=(m.prevFile||'').replace(/weekly_user_kpis_/i,'').replace('.csv','').toUpperCase();
+  if (m.oblCSV) parseOblCsv(m.oblCSV);
+  Papa.parse(m.curCSV,{header:true,skipEmptyLines:true,dynamicTyping:true,complete(r){
+    allCurRows=r.data.filter(row=>row[C.company]);
+    if (m.prevCSV) {
+      Papa.parse(m.prevCSV,{header:true,skipEmptyLines:true,dynamicTyping:true,complete(r2){
+        allPrevRows=r2.data.filter(row=>row[C.company]);buildDashboard();
+      }});
+    } else { buildDashboard(); }
+  }});
+}
+window.addEventListener('DOMContentLoaded',init);
 
-// ── File loading (manual upload) ──────────────────────────────────────────────
-function loadFile(input, type){
-  var file = input.files[0];
-  if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
-    var text = e.target.result;
-    if(type === 'kpi'){
-      var p = Papa.parse(text, {header:true, skipEmptyLines:true});
-      state.kpiRows = p.data;
-      state.filename = file.name;
-      document.getElementById('fname-kpi').textContent = file.name;
-      document.getElementById('card-kpi').classList.add('loaded');
-    } else if(type === 'prev'){
-      var p = Papa.parse(text, {header:true, skipEmptyLines:true});
-      state.prevRows = p.data;
-      document.getElementById('fname-prev').textContent = file.name;
-      document.getElementById('card-prev').classList.add('loaded');
-    } else if(type === 'config'){
-      try{ state.teamsConfig = JSON.parse(text); } catch(ex){}
-      document.getElementById('fname-config').textContent = file.name;
-      document.getElementById('card-config').classList.add('loaded');
-    } else if(type === 'obl'){
-      var p = Papa.parse(text, {header:true, skipEmptyLines:true});
-      state.oblRows = p.data;
-      document.getElementById('fname-obl').textContent = file.name;
-      document.getElementById('card-obl').classList.add('loaded');
-    }
-    document.getElementById('btn-generate').disabled = state.kpiRows.length === 0;
+// ── LOAD ───────────────────────────────────────────────────────────────────────
+function loadCSV(type,inp) {
+  const file=inp.files[0];if(!file)return;
+  if (type==='obl') {
+    const reader=new FileReader();
+    reader.onload=e=>{parseOblCsv(e.target.result);markCard('obl',file.name);};
+    reader.readAsText(file,'UTF-8');return;
+  }
+  const lbl=file.name.replace('.csv','').replace(/weekly_user_kpis_/i,'').toUpperCase();
+  Papa.parse(file,{header:true,skipEmptyLines:true,dynamicTyping:true,complete(res){
+    const rows=res.data.filter(r=>r[C.company]);
+    if(type==='cur'){allCurRows=rows;curLabel=lbl;markCard('cur',file.name);document.getElementById('btn-go').disabled=false;}
+    else{allPrevRows=rows;prevLabel=lbl;markCard('prev',file.name);}
+  }});
+}
+
+function parseOblCsv(csv) {
+  const res=Papa.parse(csv,{header:true,skipEmptyLines:true});
+  if(!res.data.length)return;
+  const hdrs=Object.keys(res.data[0]);
+  const find=kw=>hdrs.find(h=>h.toUpperCase().replace(/[ÉÈÊË]/g,'E').includes(kw.toUpperCase().replace(/[ÉÈÊË]/g,'E')))||kw;
+  OC={
+    famille:find('FAMILLE'),declaration:find('DECLARATION'),entreprise:find('ENTREPRISE'),
+    etat:find('ETAT'),echeance:find('ECHEANCE'),statut:find('STATUT'),coach:find('COACH'),
   };
-  reader.readAsText(file, 'utf-8');
+  allOblRows=res.data.filter(r=>{const e=(r[OC.etat]||'').trim();return e&&e!=='Terminée'&&e!=='Terminee';});
 }
 
-// ── Generate ──────────────────────────────────────────────────────────────────
-function generate(){
-  if(state.kpiRows.length === 0) return;
-  document.getElementById('upload-zone').style.display = 'none';
-  document.getElementById('dashboard').style.display = 'block';
-  document.getElementById('main-nav').style.display = 'flex';
-  if(state.filename && state.filename !== '__FILENAME__'){
-    document.getElementById('meta-info').textContent = state.filename + (state.date && state.date !== '__DATE__' ? ' — ' + state.date : '');
+function loadConfig(inp) {
+  const file=inp.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{try{CFG=JSON.parse(e.target.result);markCard('cfg',file.name);}catch(err){alert('Fichier JSON invalide');}};
+  reader.readAsText(file);
+}
+function markCard(id,name){const n=document.getElementById('n-'+id);if(n)n.textContent=name;const c=document.getElementById('card-'+id);if(c)c.classList.add('loaded');}
+
+function applyFilters() {
+  const xc=CFG.excludedCoaches||[],xf=CFG.excludedForms||[];
+  curRows=allCurRows.filter(r=>!xc.includes(r[C.coach])&&!xf.includes(r[C.forme]));
+  prevRows=allPrevRows.filter(r=>!xc.includes(r[C.coach])&&!xf.includes(r[C.forme]));
+  oblRows=allOblRows;
+}
+
+function resetApp() {
+  document.getElementById('upload-zone').style.display='flex';
+  document.getElementById('dashboard').style.display='none';
+  allCurRows=[];allPrevRows=[];curRows=[];prevRows=[];allOblRows=[];oblRows=[];
+  ['cur','prev','obl','cfg'].forEach(id=>{
+    const n=document.getElementById('n-'+id);if(n)n.textContent='';
+    const c=document.getElementById('card-'+id);if(c)c.classList.remove('loaded');
+  });
+  document.getElementById('btn-go').disabled=true;
+  Object.values(charts).forEach(c=>c.destroy());charts={};
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────────────
+const v=(row,key)=>Number(row[C[key]])||0;
+function isAlert(row,a){const val=v(row,a.key);return a.op==='>'?val>a.t:val===a.t;}
+function prevOf(row){return prevRows.find(r=>r[C.company]===row[C.company]);}
+function delta(cur,prev,badDir='up'){
+  if(prev===undefined||prev===null)return'';const d=cur-prev;
+  if(d===0)return'<span class="eq">= même</span>';
+  const up=d>0,cls=(badDir==='up')?(up?'up':'dn'):(up?'dn':'up');
+  return`<span class="${cls}">${up?'▲':'▼'}${Math.abs(d)}</span>`;
+}
+function thS(tid,i,lbl){return`<th onclick="sortTbl('${tid}',${i})">${lbl} ↕</th>`;}
+let _sort={};
+function sortTbl(tid,ci){
+  const t=document.getElementById(tid);if(!t)return;
+  const tb=t.querySelector('tbody');const rows=Array.from(tb.querySelectorAll('tr'));
+  const asc=_sort[tid]!==ci;_sort[tid]=asc?ci:-ci;
+  rows.sort((a,b)=>{
+    const av=a.cells[ci]?.textContent.trim()||'',bv=b.cells[ci]?.textContent.trim()||'';
+    const an=parseFloat(av),bn=parseFloat(bv);
+    if(!isNaN(an)&&!isNaN(bn))return asc?an-bn:bn-an;
+    return asc?av.localeCompare(bv,'fr'):bv.localeCompare(av,'fr');
+  });
+  rows.forEach(r=>tb.appendChild(r));
+}
+function coachSquad(n){
+  for(const tribe of(CFG.tribes||[])){
+    if(tribe.leader===n)return{squad:'Tribe Leader',color:'#6366f1'};
+    for(const sq of(tribe.squads||[])){if(sq.leader===n||sq.members.includes(n))return{squad:sq.name,color:sq.color};}
+    if((tribe.standalone||[]).includes(n))return{squad:'Standalone',color:'#8b5cf6'};
   }
-  buildGlobal();
-  buildEquipes();
-  buildCoaches();
-  if(state.oblRows.length > 0) buildObligations();
-  updateTabBadges();
+  return{squad:'—',color:'#9ca3af'};
+}
+function squadMembers(sq){return[sq.leader,...sq.members];}
+function rowsForCoach(coach,pool){return pool.filter(r=>r[C.coach]===coach);}
+function rowsForSquad(sq,pool){return pool.filter(r=>squadMembers(sq).includes(r[C.coach]));}
+
+// Obligations helpers
+function oblEtat(row){const e=(row[OC.etat]||'').trim().toLowerCase();return e.includes('retard')?'retard':'afaire';}
+function oblForCoach(coach){
+  if(!oblRows.length||!OC.coach)return{retard:0,afaire:0};
+  const rows=oblRows.filter(r=>(r[OC.coach]||'').trim()===coach);
+  return{retard:rows.filter(r=>oblEtat(r)==='retard').length,afaire:rows.filter(r=>oblEtat(r)==='afaire').length};
+}
+function oblForCoaches(names){
+  if(!oblRows.length||!OC.coach)return{retard:0,afaire:0};
+  const rows=oblRows.filter(r=>names.includes((r[OC.coach]||'').trim()));
+  return{retard:rows.filter(r=>oblEtat(r)==='retard').length,afaire:rows.filter(r=>oblEtat(r)==='afaire').length};
 }
 
-// ── Tab switching ─────────────────────────────────────────────────────────────
+// ── MAIN BUILD ─────────────────────────────────────────────────────────────────
+function buildDashboard(){
+  applyFilters();
+  document.getElementById('upload-zone').style.display='none';
+  document.getElementById('dashboard').style.display='block';
+  document.getElementById('lbl-cur').textContent=curLabel;
+  if(prevRows.length){document.getElementById('lbl-prev').style.display='inline-block';document.getElementById('lbl-prev').textContent='vs '+prevLabel;}
+  if(curDate)document.getElementById('lbl-date').textContent='— mis à jour le '+curDate;
+  buildGlobal();buildEquipes();buildCoaches();buildProfil();buildBanques();buildFlux();buildObligations();updateTabBadges();
+}
 function switchTab(name){
-  ['global','equipes','coaches','obligations'].forEach(function(t){
-    document.getElementById('tab-'+t).style.display = (t===name) ? 'block' : 'none';
-  });
-  document.querySelectorAll('nav button').forEach(function(b){
-    b.classList.toggle('active', b.dataset.tab === name);
-  });
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById('p-'+name).classList.add('active');
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function num(v){ var n=parseFloat(String(v).replace(',','.')); return isNaN(n)?0:n; }
-function pct(v){ var s=String(v||'').replace('%','').replace(',','.'); var n=parseFloat(s); return isNaN(n)?0:n; }
-function fmt(n,d){ if(n===null||n===undefined||isNaN(n)) return '—'; return Number(n).toLocaleString('fr-FR',{maximumFractionDigits:d||0}); }
-function fmtPct(n){ if(n===null||n===undefined||isNaN(n)) return '—'; return Number(n).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%'; }
-
-function getCol(row, candidates){
-  for(var i=0;i<candidates.length;i++){ if(row[candidates[i]] !== undefined) return row[candidates[i]]; }
-  return '';
-}
-
-function deltaHtml(curr, prev, higherIsBetter, isPct){
-  if(prev === null || prev === undefined || isNaN(prev)) return '';
-  var diff = curr - prev;
-  if(diff === 0) return '<span class="delta neutral">= 0</span>';
-  var isGood = higherIsBetter ? diff > 0 : diff < 0;
-  var cls = isGood ? 'up' : 'down';
-  var arrow = diff > 0 ? '▲' : '▼';
-  var val = isPct ? fmtPct(Math.abs(diff)) : fmt(Math.abs(diff),1);
-  return '<span class="delta '+cls+'">'+arrow+' '+val+'</span>';
-}
-
-function groupBy(rows, key){
-  var g = {};
-  rows.forEach(function(r){
-    var k = r[key] || '';
-    if(!g[k]) g[k] = [];
-    g[k].push(r);
-  });
-  return g;
-}
-
-// ── Obligations helpers ───────────────────────────────────────────────────────
-function isOblRetard(row){ return String(row[OBL.ETAT]||'').toLowerCase().trim() === 'en retard'; }
-function isOblAFaire(row){
-  var e = String(row[OBL.ETAT]||'').toLowerCase().trim();
-  return e !== 'terminée' && e !== 'terminee' && e !== 'en retard';
-}
-function isOblActive(row){
-  var e = String(row[OBL.ETAT]||'').toLowerCase().trim();
-  return e !== 'terminée' && e !== 'terminee';
-}
-
-function normalizeCoach(raw){
-  if(!raw) return '';
-  return String(raw).trim().toLowerCase();
-}
-
-function oblForCoach(coachName){
-  var nc = normalizeCoach(coachName);
-  return state.oblRows.filter(function(r){
-    return normalizeCoach(r[OBL.COACH]) === nc;
-  });
-}
-
-function oblForSquad(squadName){
-  // Get coaches for this squad, then their obligations
-  var coaches = getCoachesForSquad(squadName);
-  var nc = coaches.map(normalizeCoach);
-  return state.oblRows.filter(function(r){
-    return nc.indexOf(normalizeCoach(r[OBL.COACH])) >= 0;
-  });
-}
-
-function getCoachesForSquad(squadName){
-  var coaches = [];
-  var byCoach = groupBy(state.kpiRows, detectCoachCol());
-  Object.keys(byCoach).forEach(function(c){
-    var rows = byCoach[c];
-    var sq = normalizeSquad(getCol(rows[0], ['Squad','squad','Equipe','équipe','equipe']));
-    if(sq === squadName) coaches.push(c);
-  });
-  return coaches;
-}
-
-function detectCoachCol(){
-  if(state.kpiRows.length === 0) return 'Coach';
-  var keys = Object.keys(state.kpiRows[0]);
-  var candidates = ['Coach','coach','Prénom Nom','Prenom Nom','Nom complet','nom_complet','Collaborateur','collaborateur','Nom','nom','Prénom','prenom','Name','name','User','user','Email','email'];
-  for(var i=0;i<candidates.length;i++) if(keys.indexOf(candidates[i])>=0) return candidates[i];
-  // Partial match
-  var kw = ['coach','nom','prenom','name','user','collaborateur'];
-  for(var j=0;j<keys.length;j++){
-    var kl = keys[j].toLowerCase();
-    for(var k=0;k<kw.length;k++) if(kl.indexOf(kw[k])>=0) return keys[j];
-  }
-  return keys[0];
-}
-
-function parseEcheanceISO(str){
-  if(!str) return '';
-  var s = String(str).trim();
-  // dd/mm/yyyy → yyyy-mm-dd
-  var m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if(m) return m[3]+'-'+m[2]+'-'+m[1];
-  // already yyyy-mm-dd
-  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  return '';
-}
-
-function oblStatePill(etat){
-  var e = String(etat||'').trim();
-  var el = e.toLowerCase();
-  if(el === 'en retard') return '<span class="pill retard">En retard</span>';
-  if(el === 'terminée' || el === 'terminee') return '<span class="pill terminee">Terminée</span>';
-  if(el === 'à faire' || el === 'a faire') return '<span class="pill afaire">À faire</span>';
-  return '<span class="pill afaire">'+e+'</span>';
-}
-
-// ── Tab: Global ───────────────────────────────────────────────────────────────
-function buildGlobal(){
-  var rows = state.kpiRows;
-  var prev = state.prevRows;
-  var coachCol = detectCoachCol();
-
-  // Detect columns
-  var keys = Object.keys(rows[0] || {});
-  var cols = {
-    dossiers: findCol(keys, ['Dossiers assignés','Dossiers assignes','dossiers_assignes','Dossiers','dossiers','Nb dossiers','Portefeuille','portefeuille']) || findColPartial(keys,'dossier'),
-    retard:   findCol(keys, ['Dossiers en retard','dossiers_retard','En retard','en_retard','Retard','retard']) || findColPartial(keys,'retard'),
-    bilans:   findCol(keys, ['Bilans produits','bilans_produits','Bilans','bilans','Bilan']) || findColPartial(keys,'bilan'),
-    taux:     findCol(keys, ['Taux de traitement','taux_traitement','Taux traitement','taux','Taux','% traitement']) || findColPartial(keys,'taux'),
-    nps:      findCol(keys, ['NPS','nps','Score NPS','score_nps']) || findColPartial(keys,'nps'),
-    liasses:  findCol(keys, ['Liasses fiscales','liasses_fiscales','Liasses','liasses','Liasse']) || findColPartial(keys,'liasse')
-  };
-
-  var totDossiers = sumCol(rows, cols.dossiers);
-  var totRetard   = sumCol(rows, cols.retard);
-  var totBilans   = sumCol(rows, cols.bilans);
-  var avgTaux     = avgCol(rows, cols.taux);
-  var avgNPS      = avgCol(rows, cols.nps);
-  var totLiasses  = sumCol(rows, cols.liasses);
-
-  var prevTotD = prev.length ? sumCol(prev, cols.dossiers) : null;
-  var prevTotR = prev.length ? sumCol(prev, cols.retard)   : null;
-  var prevAvgT = prev.length ? avgCol(prev, cols.taux)     : null;
-  var prevAvgN = prev.length ? avgCol(prev, cols.nps)      : null;
-
-  var oblRetardCount = state.oblRows.filter(isOblRetard).length;
-  var oblAFaireCount = state.oblRows.filter(isOblAFaire).length;
-
-  var html = '<div class="section-title">Vue d\'ensemble</div>';
-  html += '<div class="cards-grid">';
-  html += kpiCard('Dossiers assignés', fmt(totDossiers), '', deltaHtml(totDossiers, prevTotD, true, false));
-  html += kpiCard('Dossiers en retard', fmt(totRetard), '', deltaHtml(totRetard, prevTotR, false, false));
-  if(cols.bilans) html += kpiCard('Bilans produits', fmt(totBilans), '', '');
-  if(cols.taux)   html += kpiCard('Taux de traitement', fmtPct(avgTaux), 'Moyenne équipes', deltaHtml(avgTaux, prevAvgT, true, true));
-  if(cols.nps)    html += kpiCard('NPS', fmt(avgNPS,1), 'Moyenne', deltaHtml(avgNPS, prevAvgN, true, false));
-  if(cols.liasses) html += kpiCard('Liasses fiscales', fmt(totLiasses), '', '');
-  if(state.oblRows.length > 0){
-    html += kpiCard('Obl. en retard', fmt(oblRetardCount), 'Toutes équipes', '');
-    html += kpiCard('Obl. à faire', fmt(oblAFaireCount), 'Toutes équipes', '');
-  }
-  html += '</div>';
-
-  // Par squad
-  var bySquad = {};
-  rows.forEach(function(r){
-    var sq = normalizeSquad(getCol(r, ['Squad','squad','Equipe','équipe','equipe']));
-    if(!bySquad[sq]) bySquad[sq] = [];
-    bySquad[sq].push(r);
-  });
-  var squads = Object.keys(bySquad).sort();
-
-  if(squads.length > 1 && cols.dossiers){
-    html += '<div class="section-title">Par équipe</div>';
-    html += '<div class="tbl-wrap"><table>';
-    html += '<thead><tr><th>Équipe</th><th>Coaches</th><th>Dossiers</th>';
-    if(cols.retard) html += '<th>En retard</th>';
-    if(cols.taux)   html += '<th>Taux moy.</th>';
-    if(state.oblRows.length > 0) html += '<th>Obl. retard</th><th>Obl. à faire</th>';
-    html += '</tr></thead><tbody>';
-    squads.forEach(function(sq){
-      var srows = bySquad[sq];
-      var color = SQUAD_COLORS[sq] || '#b2bec3';
-      var obl = state.oblRows.length > 0 ? oblForSquad(sq) : [];
-      html += '<tr>';
-      html += '<td><div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:'+color+';display:inline-block"></span><strong>'+sq+'</strong></div></td>';
-      html += '<td>'+srows.length+'</td>';
-      html += '<td>'+fmt(sumCol(srows, cols.dossiers))+'</td>';
-      if(cols.retard) html += '<td>'+fmt(sumCol(srows, cols.retard))+'</td>';
-      if(cols.taux)   html += '<td>'+fmtPct(avgCol(srows, cols.taux))+'</td>';
-      if(state.oblRows.length > 0){
-        html += '<td>'+obl.filter(isOblRetard).length+'</td>';
-        html += '<td>'+obl.filter(isOblAFaire).length+'</td>';
-      }
-      html += '</tr>';
-    });
-    html += '</tbody></table></div>';
-  }
-
-  // Obligations summary by famille × état
-  if(state.oblRows.length > 0){
-    var familles = {};
-    state.oblRows.forEach(function(r){
-      var f = r[OBL.FAMILLE] || 'Autre';
-      var e = String(r[OBL.ETAT]||'').trim();
-      if(!familles[f]) familles[f] = {retard:0, afaire:0, terminee:0, total:0};
-      familles[f].total++;
-      if(isOblRetard(r)) familles[f].retard++;
-      else if(isOblAFaire(r)) familles[f].afaire++;
-      else familles[f].terminee++;
-    });
-    var fkeys = Object.keys(familles).sort();
-    html += '<div class="section-title">Obligations par famille</div>';
-    html += '<div class="tbl-wrap"><table>';
-    html += '<thead><tr><th>Famille</th><th>En retard</th><th>À faire</th><th>Terminées</th><th>Total</th></tr></thead><tbody>';
-    fkeys.forEach(function(f){
-      var d = familles[f];
-      html += '<tr><td><strong>'+f+'</strong></td>';
-      html += '<td>'+(d.retard>0?'<span class="pill retard">'+d.retard+'</span>':'0')+'</td>';
-      html += '<td>'+(d.afaire>0?'<span class="pill afaire">'+d.afaire+'</span>':'0')+'</td>';
-      html += '<td>'+d.terminee+'</td>';
-      html += '<td>'+d.total+'</td></tr>';
-    });
-    html += '</tbody></table></div>';
-  }
-
-  document.getElementById('tab-global').innerHTML = html;
-}
-
-function kpiCard(label, value, sub, deltaHtmlStr){
-  return '<div class="card"><div class="card-label">'+label+'</div><div class="card-value">'+value+'</div>'+(sub?'<div class="card-sub">'+sub+'</div>':'')+(deltaHtmlStr||'')+'</div>';
-}
-
-function findCol(keys, candidates){
-  // Exact match first
-  for(var i=0;i<candidates.length;i++) if(keys.indexOf(candidates[i])>=0) return candidates[i];
-  // Partial case-insensitive match
-  var lc = candidates.map(function(c){return c.toLowerCase().replace(/[éèê]/g,'e').replace(/[àâ]/g,'a').replace(/[ùû]/g,'u').replace(/[îï]/g,'i').replace(/[ôö]/g,'o');});
-  for(var j=0;j<keys.length;j++){
-    var kn = keys[j].toLowerCase().replace(/[éèê]/g,'e').replace(/[àâ]/g,'a').replace(/[ùû]/g,'u').replace(/[îï]/g,'i').replace(/[ôö]/g,'o');
-    for(var k=0;k<lc.length;k++){
-      if(kn.indexOf(lc[k])>=0 || lc[k].indexOf(kn)>=0) return keys[j];
-    }
-  }
-  return null;
-}
-
-function findColPartial(keys, keyword){
-  var kw = keyword.toLowerCase().replace(/[éèê]/g,'e').replace(/[àâ]/g,'a').replace(/[ùû]/g,'u');
-  for(var j=0;j<keys.length;j++){
-    var kn = keys[j].toLowerCase().replace(/[éèê]/g,'e').replace(/[àâ]/g,'a').replace(/[ùû]/g,'u');
-    if(kn.indexOf(kw)>=0) return keys[j];
-  }
-  return null;
-}
-
-function sumCol(rows, col){
-  if(!col) return 0;
-  return rows.reduce(function(a,r){ return a + num(r[col]); }, 0);
-}
-function avgCol(rows, col){
-  if(!col || rows.length === 0) return 0;
-  var vals = rows.map(function(r){ return num(r[col]); }).filter(function(v){ return !isNaN(v); });
-  if(vals.length === 0) return 0;
-  return vals.reduce(function(a,b){return a+b;},0) / vals.length;
-}
-
-// ── Tab: Équipes ──────────────────────────────────────────────────────────────
-var equipesSortCol = null, equipesSortDir = 1;
-
-function buildEquipes(){
-  var rows = state.kpiRows;
-  var coachCol = detectCoachCol();
-  var keys = Object.keys(rows[0] || {});
-  var cols = {
-    dossiers: findCol(keys, ['Dossiers assignés','Dossiers assignes','Dossiers','dossiers','Nb dossiers','Portefeuille']) || findColPartial(keys,'dossier'),
-    retard:   findCol(keys, ['Dossiers en retard','En retard','en_retard','Retard']) || findColPartial(keys,'retard'),
-    bilans:   findCol(keys, ['Bilans produits','Bilans','bilans','Bilan']) || findColPartial(keys,'bilan'),
-    taux:     findCol(keys, ['Taux de traitement','Taux traitement','taux','Taux','% traitement']) || findColPartial(keys,'taux'),
-    nps:      findCol(keys, ['NPS','nps','Score NPS']) || findColPartial(keys,'nps'),
-    liasses:  findCol(keys, ['Liasses fiscales','Liasses','liasses','Liasse']) || findColPartial(keys,'liasse'),
-    squad:    findCol(keys, ['Squad','squad','Equipe','Équipe','équipe','equipe']) || findColPartial(keys,'equipe') || findColPartial(keys,'squad')
-  };
-
-  var bySquad = {};
-  rows.forEach(function(r){
-    var sq = normalizeSquad(r[cols.squad] || '');
-    if(!bySquad[sq]) bySquad[sq] = [];
-    bySquad[sq].push(r);
-  });
-  var squads = Object.keys(bySquad).sort();
-
-  // Get all coaches for filter
-  var allCoachesEq = [...new Set(rows.map(function(r){ return r[coachCol]||''; }).filter(Boolean))].sort();
-
-  // Build table data
-  var tableData = squads.map(function(sq){
-    var srows = bySquad[sq];
-    var obl = state.oblRows.length > 0 ? oblForSquad(sq) : [];
-    return {
-      squad: sq,
-      coachs: srows.length,
-      coachList: srows.map(function(r){ return r[coachCol]||''; }),
-      dossiers: sumCol(srows, cols.dossiers),
-      retard: sumCol(srows, cols.retard),
-      bilans: sumCol(srows, cols.bilans),
-      taux: avgCol(srows, cols.taux),
-      nps: avgCol(srows, cols.nps),
-      liasses: sumCol(srows, cols.liasses),
-      oblRetard: obl.filter(isOblRetard).length,
-      oblAFaire: obl.filter(isOblAFaire).length
-    };
-  });
-
-  window._equipesData = tableData;
-  window._equipesCols = cols;
-
-  // Build filter UI once
-  var html = '<div class="section-title">Tableau des équipes</div>';
-  html += '<div class="filters">';
-  html += '<div class="filter-group"><label>Coach</label><select id="eq-f-coach" onchange="filterEquipes()"><option value="">Tous</option>';
-  allCoachesEq.forEach(function(c){ html += '<option value="'+escHtml(c)+'">'+escHtml(c)+'</option>'; });
-  html += '</select></div>';
-  html += '<div class="filter-group"><label>Recherche</label><input type="text" id="eq-f-search" placeholder="Équipe…" oninput="filterEquipes()"></div>';
-  html += '</div><div id="eq-table-wrap"></div>';
-  document.getElementById('tab-equipes').innerHTML = html;
-  filterEquipes();
-}
-
-function filterEquipes(){
-  var coach  = document.getElementById('eq-f-coach')  ? document.getElementById('eq-f-coach').value  : '';
-  var search = document.getElementById('eq-f-search') ? document.getElementById('eq-f-search').value.toLowerCase() : '';
-  var data = window._equipesData.filter(function(d){
-    if(coach  && d.coachList.indexOf(coach) < 0) return false;
-    if(search && d.squad.toLowerCase().indexOf(search) < 0) return false;
-    return true;
-  });
-  if(equipesSortCol){
-    data = data.sort(function(a,b){
-      var av=a[equipesSortCol],bv=b[equipesSortCol];
-      if(typeof av==='string') return av.localeCompare(bv)*equipesSortDir;
-      return (av-bv)*equipesSortDir;
-    });
-  }
-  renderEquipesTable(data, window._equipesCols);
-}
-
-function renderEquipesTable(data, cols){
-  var hasObl = state.oblRows.length > 0;
-  var html = '<div class="tbl-wrap"><table id="tbl-equipes">';
-  html += '<thead><tr>';
-  html += thS('Équipe','squad') + thS('Coachs','coachs');
-  if(cols.dossiers) html += thS('Dossiers','dossiers');
-  if(cols.retard)   html += thS('En retard','retard');
-  if(cols.bilans)   html += thS('Bilans','bilans');
-  if(cols.taux)     html += thS('Taux moy.','taux');
-  if(cols.nps)      html += thS('NPS','nps');
-  if(cols.liasses)  html += thS('Liasses','liasses');
-  if(hasObl){
-    html += thS('Obl. en retard','oblRetard');
-    html += thS('Obl. à faire','oblAFaire');
-  }
-  html += '</tr></thead><tbody>';
-
-  data.forEach(function(d){
-    var color = SQUAD_COLORS[d.squad] || '#b2bec3';
-    html += '<tr>';
-    html += '<td><div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:'+color+';display:inline-block"></span><strong>'+escHtml(d.squad)+'</strong></div></td>';
-    html += '<td>'+d.coachs+'</td>';
-    if(cols.dossiers) html += '<td>'+fmt(d.dossiers)+'</td>';
-    if(cols.retard)   html += '<td>'+fmt(d.retard)+'</td>';
-    if(cols.bilans)   html += '<td>'+fmt(d.bilans)+'</td>';
-    if(cols.taux)     html += '<td>'+fmtPct(d.taux)+'</td>';
-    if(cols.nps)      html += '<td>'+fmt(d.nps,1)+'</td>';
-    if(cols.liasses)  html += '<td>'+fmt(d.liasses)+'</td>';
-    if(hasObl){
-      html += '<td>'+(d.oblRetard>0?'<span class="pill retard">'+d.oblRetard+'</span>':'0')+'</td>';
-      html += '<td>'+(d.oblAFaire>0?'<span class="pill afaire">'+d.oblAFaire+'</span>':'0')+'</td>';
-    }
-    html += '</tr>';
-  });
-  html += '</tbody></table></div>';
-  document.getElementById('eq-table-wrap').innerHTML = html;
-}
-
-function thS(label, key){
-  var cls = equipesSortCol === key ? (equipesSortDir > 0 ? 'sort-asc' : 'sort-desc') : '';
-  return '<th class="'+cls+'" onclick="sortEquipes(\''+key+'\')">'+label+'</th>';
-}
-
-function sortEquipes(key){
-  if(equipesSortCol === key) equipesSortDir *= -1;
-  else { equipesSortCol = key; equipesSortDir = 1; }
-  filterEquipes();
-}
-
-// ── Tab: Coachs ───────────────────────────────────────────────────────────────
-var coachesSortCol = null, coachesSortDir = 1;
-
-function buildCoaches(){
-  var rows = state.kpiRows;
-  var prev = state.prevRows;
-  var coachCol = detectCoachCol();
-  var keys = Object.keys(rows[0] || {});
-  var cols = {
-    dossiers: findCol(keys, ['Dossiers assignés','Dossiers assignes','Dossiers','dossiers','Nb dossiers','Portefeuille']) || findColPartial(keys,'dossier'),
-    retard:   findCol(keys, ['Dossiers en retard','En retard','en_retard','Retard']) || findColPartial(keys,'retard'),
-    bilans:   findCol(keys, ['Bilans produits','Bilans','bilans','Bilan']) || findColPartial(keys,'bilan'),
-    taux:     findCol(keys, ['Taux de traitement','Taux traitement','taux','Taux','% traitement']) || findColPartial(keys,'taux'),
-    nps:      findCol(keys, ['NPS','nps','Score NPS']) || findColPartial(keys,'nps'),
-    liasses:  findCol(keys, ['Liasses fiscales','Liasses','liasses','Liasse']) || findColPartial(keys,'liasse'),
-    squad:    findCol(keys, ['Squad','squad','Equipe','Équipe','équipe','equipe']) || findColPartial(keys,'equipe') || findColPartial(keys,'squad')
-  };
-
-  var byCoach = groupBy(rows, coachCol);
-  var prevByCoach = prev.length ? groupBy(prev, coachCol) : {};
-  var allSquads = [...new Set(Object.keys(byCoach).map(function(c){
-    return normalizeSquad(getCol(byCoach[c][0], ['Squad','squad','Equipe','Équipe','équipe','equipe']));
-  }))].sort();
-
-  var tableData = Object.keys(byCoach).sort().map(function(c){
-    var cr = byCoach[c];
-    var pr = prevByCoach[c] || [];
-    var obl = state.oblRows.length > 0 ? oblForCoach(c) : [];
-    return {
-      coach: c,
-      squad: normalizeSquad(getCol(cr[0], ['Squad','squad','Equipe','Équipe','équipe','equipe'])),
-      dossiers: sumCol(cr, cols.dossiers),
-      retard: sumCol(cr, cols.retard),
-      bilans: sumCol(cr, cols.bilans),
-      taux: avgCol(cr, cols.taux),
-      nps: avgCol(cr, cols.nps),
-      liasses: sumCol(cr, cols.liasses),
-      prevDossiers: pr.length ? sumCol(pr, cols.dossiers) : null,
-      oblRetard: obl.filter(isOblRetard).length,
-      oblAFaire: obl.filter(isOblAFaire).length
-    };
-  });
-
-  window._coachesData = tableData;
-  window._coachesCols = cols;
-
-  var html = '<div class="section-title">Tableau des coachs</div>';
-  html += '<div class="filters">';
-  html += '<div class="filter-group"><label>Équipe</label><select id="co-f-squad" onchange="filterCoaches()"><option value="">Toutes</option>';
-  allSquads.forEach(function(s){ html += '<option value="'+escHtml(s)+'">'+escHtml(s)+'</option>'; });
-  html += '</select></div>';
-  html += '<div class="filter-group"><label>Recherche</label><input type="text" id="co-f-search" placeholder="Coach…" oninput="filterCoaches()"></div>';
-  html += '</div><div id="co-table-wrap"></div>';
-  document.getElementById('tab-coaches').innerHTML = html;
-  filterCoaches();
-}
-
-function filterCoaches(){
-  var squad  = document.getElementById('co-f-squad')  ? document.getElementById('co-f-squad').value  : '';
-  var search = document.getElementById('co-f-search') ? document.getElementById('co-f-search').value.toLowerCase() : '';
-  var data = window._coachesData.filter(function(d){
-    if(squad  && d.squad !== squad) return false;
-    if(search && d.coach.toLowerCase().indexOf(search) < 0) return false;
-    return true;
-  });
-  if(coachesSortCol){
-    data = data.sort(function(a,b){
-      var av=a[coachesSortCol],bv=b[coachesSortCol];
-      if(av===null||av===undefined) return 1;
-      if(bv===null||bv===undefined) return -1;
-      if(typeof av==='string') return av.localeCompare(bv)*coachesSortDir;
-      return (av-bv)*coachesSortDir;
-    });
-  }
-  renderCoachesTable(data, window._coachesCols);
-}
-
-function renderCoachesTable(data, cols){
-  var hasObl = state.oblRows.length > 0;
-  var hasPrev = state.prevRows.length > 0;
-  var html = '<div class="tbl-wrap"><table id="tbl-coaches">';
-  html += '<thead><tr>';
-  html += cthS('Coach','coach') + cthS('Équipe','squad');
-  if(cols.dossiers) html += cthS('Dossiers','dossiers');
-  if(hasPrev && cols.dossiers) html += cthS('Δ Dossiers','prevDossiers');
-  if(cols.retard)   html += cthS('En retard','retard');
-  if(cols.bilans)   html += cthS('Bilans','bilans');
-  if(cols.taux)     html += cthS('Taux','taux');
-  if(cols.nps)      html += cthS('NPS','nps');
-  if(cols.liasses)  html += cthS('Liasses','liasses');
-  if(hasObl){
-    html += cthS('Obl. en retard','oblRetard');
-    html += cthS('Obl. à faire','oblAFaire');
-  }
-  html += '</tr></thead><tbody>';
-
-  data.forEach(function(d){
-    var color = SQUAD_COLORS[d.squad] || '#b2bec3';
-    html += '<tr>';
-    html += '<td><strong>'+escHtml(d.coach)+'</strong></td>';
-    html += '<td><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:'+color+';display:inline-block"></span>'+escHtml(d.squad)+'</div></td>';
-    if(cols.dossiers) html += '<td>'+fmt(d.dossiers)+'</td>';
-    if(hasPrev && cols.dossiers) html += '<td>'+deltaHtml(d.dossiers, d.prevDossiers, true, false)+'</td>';
-    if(cols.retard)   html += '<td>'+fmt(d.retard)+'</td>';
-    if(cols.bilans)   html += '<td>'+fmt(d.bilans)+'</td>';
-    if(cols.taux)     html += '<td>'+fmtPct(d.taux)+'</td>';
-    if(cols.nps)      html += '<td>'+fmt(d.nps,1)+'</td>';
-    if(cols.liasses)  html += '<td>'+fmt(d.liasses)+'</td>';
-    if(hasObl){
-      html += '<td>'+(d.oblRetard>0?'<span class="pill retard">'+d.oblRetard+'</span>':'0')+'</td>';
-      html += '<td>'+(d.oblAFaire>0?'<span class="pill afaire">'+d.oblAFaire+'</span>':'0')+'</td>';
-    }
-    html += '</tr>';
-  });
-  html += '</tbody></table></div>';
-  document.getElementById('co-table-wrap').innerHTML = html;
-}
-
-function cthS(label, key){
-  var cls = coachesSortCol === key ? (coachesSortDir > 0 ? 'sort-asc' : 'sort-desc') : '';
-  return '<th class="'+cls+'" onclick="sortCoaches(\''+key+'\')">'+label+'</th>';
-}
-
-function sortCoaches(key){
-  if(coachesSortCol === key) coachesSortDir *= -1;
-  else { coachesSortCol = key; coachesSortDir = 1; }
-  filterCoaches();
-}
-
-// ── Tab: Obligations ──────────────────────────────────────────────────────────
-function buildObligations(){
-  var oblRows = state.oblRows;
-  if(!oblRows.length) return;
-
-  // Get unique values for filters
-  var coaches = [...new Set(oblRows.map(function(r){ return r[OBL.COACH]||''; }).filter(Boolean))].sort();
-  var familles = [...new Set(oblRows.map(function(r){ return r[OBL.FAMILLE]||''; }).filter(Boolean))].sort();
-  var etats = [...new Set(oblRows.map(function(r){ return r[OBL.ETAT]||''; }).filter(Boolean))].sort();
-
-  var html = '<div class="section-title">Obligations fiscales</div>';
-
-  // Filters
-  html += '<div class="filters">';
-  html += '<div class="filter-group"><label>Coach</label><select id="obl-f-coach" onchange="filterObligations()"><option value="">Tous</option>';
-  coaches.forEach(function(c){ html += '<option value="'+c+'">'+c+'</option>'; });
-  html += '</select></div>';
-
-  html += '<div class="filter-group"><label>Famille</label><select id="obl-f-famille" onchange="filterObligations()"><option value="">Toutes</option>';
-  familles.forEach(function(f){ html += '<option value="'+f+'">'+f+'</option>'; });
-  html += '</select></div>';
-
-  html += '<div class="filter-group"><label>État</label><select id="obl-f-etat" onchange="filterObligations()"><option value="">Tous</option>';
-  etats.forEach(function(e){ html += '<option value="'+e+'">'+e+'</option>'; });
-  html += '</select></div>';
-
-  html += '<div class="filter-group"><label>Recherche</label><input type="text" id="obl-f-search" placeholder="Entreprise…" oninput="filterObligations()"></div>';
-
-  html += '<div class="filter-group"><label>Échéance du</label><input type="date" id="obl-f-ech-from" onchange="filterObligations()"></div>';
-  html += '<div class="filter-group"><label>au</label><input type="date" id="obl-f-ech-to" onchange="filterObligations()"></div>';
-  html += '</div>';
-
-  // Table
-  html += '<div id="obl-table-wrap"></div>';
-  document.getElementById('tab-obligations').innerHTML = html;
-  filterObligations();
-}
-
-function filterObligations(){
-  var coach   = document.getElementById('obl-f-coach')   ? document.getElementById('obl-f-coach').value   : '';
-  var famille = document.getElementById('obl-f-famille') ? document.getElementById('obl-f-famille').value : '';
-  var etat    = document.getElementById('obl-f-etat')    ? document.getElementById('obl-f-etat').value    : '';
-  var search  = document.getElementById('obl-f-search')  ? document.getElementById('obl-f-search').value.toLowerCase() : '';
-  var echFrom = document.getElementById('obl-f-ech-from')? document.getElementById('obl-f-ech-from').value : '';
-  var echTo   = document.getElementById('obl-f-ech-to')  ? document.getElementById('obl-f-ech-to').value   : '';
-
-  var filtered = state.oblRows.filter(function(r){
-    if(coach   && r[OBL.COACH]   !== coach)   return false;
-    if(famille && r[OBL.FAMILLE] !== famille) return false;
-    if(etat    && r[OBL.ETAT]    !== etat)    return false;
-    if(search  && String(r[OBL.ENTREPRISE]||'').toLowerCase().indexOf(search) < 0 &&
-                  String(r[OBL.DECLARATION]||'').toLowerCase().indexOf(search) < 0) return false;
-    if(echFrom || echTo){
-      var iso = parseEcheanceISO(r[OBL.ECHEANCE]);
-      if(echFrom && iso && iso < echFrom) return false;
-      if(echTo   && iso && iso > echTo)   return false;
-      if((echFrom || echTo) && !iso) return false;
-    }
-    return true;
-  });
-
-  var html = '<div class="tbl-wrap"><table>';
-  html += '<thead><tr><th>'+OBL.FAMILLE+'</th><th>'+OBL.DECLARATION+'</th><th>'+OBL.ENTREPRISE+'</th><th>État</th><th>'+OBL.ECHEANCE+'</th><th>'+OBL.COACH+'</th></tr></thead>';
-  html += '<tbody>';
-  filtered.forEach(function(r){
-    var iso = parseEcheanceISO(r[OBL.ECHEANCE]);
-    html += '<tr>';
-    html += '<td>'+escHtml(r[OBL.FAMILLE]||'')+'</td>';
-    html += '<td>'+escHtml(r[OBL.DECLARATION]||'')+'</td>';
-    html += '<td>'+escHtml(r[OBL.ENTREPRISE]||'')+'</td>';
-    html += '<td>'+oblStatePill(r[OBL.ETAT])+'</td>';
-    html += '<td data-ech="'+(iso||'')+'">'+escHtml(r[OBL.ECHEANCE]||'')+'</td>';
-    html += '<td>'+escHtml(r[OBL.COACH]||'')+'</td>';
-    html += '</tr>';
-  });
-  html += '</tbody></table></div>';
-  html += '<div style="font-size:12px;color:#8892a4;margin-top:8px">'+filtered.length+' obligation'+(filtered.length>1?'s':'')+' affichée'+(filtered.length>1?'s':'')+'</div>';
-
-  var wrap = document.getElementById('obl-table-wrap');
-  if(wrap) wrap.innerHTML = html;
-}
-
-function escHtml(s){
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── Badges ────────────────────────────────────────────────────────────────────
 function updateTabBadges(){
-  var retardCount = state.oblRows.filter(isOblRetard).length;
-  var oblBtn = document.querySelector('nav button[data-tab="obligations"]');
-  if(oblBtn){
-    if(retardCount > 0){
-      oblBtn.innerHTML = 'Obligations<span class="badge">'+retardCount+'</span>';
-    } else {
-      oblBtn.textContent = 'Obligations';
-    }
+  const pN=curRows.filter(r=>v(r,'completion')<100).length;
+  const bN=curRows.filter(r=>v(r,'bankDeco')>0).length;
+  const fN=curRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+  const cN=[...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))].length;
+  const oR=oblRows.filter(r=>oblEtat(r)==='retard').length;
+  document.getElementById('t-profil').innerHTML=`Profil <span class="badge-tab">${pN}</span>`;
+  document.getElementById('t-banques').innerHTML=`Banques <span class="badge-tab">${bN}</span>`;
+  document.getElementById('t-flux').innerHTML=`Alertes Flux <span class="badge-tab">${fN}</span>`;
+  document.getElementById('t-coaches').innerHTML=`Par Coach <span class="badge-tab">${cN}</span>`;
+  if(oblRows.length)document.getElementById('t-obl').innerHTML=`Obligations${oR?` <span class="badge-tab">${oR} en retard</span>`:''}`;
+}
+
+// ── VUE GLOBALE ────────────────────────────────────────────────────────────────
+function buildGlobal(){
+  const tot=curRows.length,pTot=prevRows.length;
+  const incomp=curRows.filter(r=>v(r,'completion')<100).length,pIncomp=prevRows.filter(r=>v(r,'completion')<100).length;
+  const bank=curRows.filter(r=>v(r,'bankDeco')>0).length,pBank=prevRows.filter(r=>v(r,'bankDeco')>0).length;
+  const flux=curRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length,pFlux=prevRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+  const coaches=[...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))];
+  const oR=oblRows.filter(r=>oblEtat(r)==='retard').length;
+  const oA=oblRows.filter(r=>oblEtat(r)==='afaire').length;
+  const oblCards=oblRows.length?`
+    <div class="card ${oR?'red':'green'}"><div class="card-value">${oR}</div><div class="card-label">Obligations en retard</div></div>
+    <div class="card ${oA?'orange':'green'}"><div class="card-value">${oA}</div><div class="card-label">Obligations à faire</div></div>`:'';
+
+  document.getElementById('p-global').innerHTML=`
+  <div class="cards">
+    <div class="card blue"><div class="card-value">${tot}</div><div class="card-label">Dossiers actifs</div><div class="card-delta">${pTot?delta(tot,pTot,'down'):''}</div></div>
+    <div class="card ${incomp?'orange':'green'}"><div class="card-value">${incomp}</div><div class="card-label">Profils &lt;100%</div><div class="card-delta">${pTot?delta(incomp,pIncomp,'up'):''}</div></div>
+    <div class="card ${bank?'red':'green'}"><div class="card-value">${bank}</div><div class="card-label">Clients avec ≥1 banque déconnectée</div><div class="card-delta">${pTot?delta(bank,pBank,'up'):''}</div></div>
+    <div class="card ${flux?'red':'green'}"><div class="card-value">${flux}</div><div class="card-label">Clients avec alertes flux</div><div class="card-delta">${pTot?delta(flux,pFlux,'up'):''}</div></div>
+    <div class="card blue"><div class="card-value">${coaches.length}</div><div class="card-label">Coachs actifs</div></div>
+    ${oblCards}
+  </div>
+  <div class="charts-row">
+    <div class="chart-box"><div class="chart-title">Dossiers par squad</div><canvas id="ch-squads"></canvas></div>
+    <div class="chart-box"><div class="chart-title">Alertes flux par type${prevRows.length?' (vs sem. préc.)':''}</div><canvas id="ch-alerts"></canvas></div>
+  </div>
+  <div id="obl-global"></div>`;
+
+  // Chart squads
+  const sl=[],sc=[],sk=[];
+  for(const tribe of(CFG.tribes||[])){
+    for(const sq of(tribe.squads||[])){sl.push(sq.name);sc.push(rowsForSquad(sq,curRows).length);sk.push(sq.color+'cc');}
+    sl.push(tribe.leader.split(' ')[0]+' (TL)');sc.push(rowsForCoach(tribe.leader,curRows).length);sk.push('#6366f1cc');
+    for(const n of(tribe.standalone||[])){sl.push(n.split(' ')[0]);sc.push(rowsForCoach(n,curRows).length);sk.push('#8b5cf6cc');}
+  }
+  charts['squads']=new Chart(document.getElementById('ch-squads'),{
+    type:'bar',data:{labels:sl,datasets:[{data:sc,backgroundColor:sk,borderRadius:4}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+  });
+
+  // Chart alertes
+  const al=ALERTS.map(a=>a.label.length>28?a.label.slice(0,27)+'…':a.label);
+  const ac=ALERTS.map(a=>curRows.filter(r=>isAlert(r,a)).length);
+  const ap=ALERTS.map(a=>prevRows.filter(r=>isAlert(r,a)).length);
+  const ds=[{label:curLabel||'Sem. courante',data:ac,backgroundColor:'#ef444488',borderColor:'#ef4444',borderWidth:1,borderRadius:4}];
+  if(prevRows.length)ds.push({label:prevLabel||'Sem. préc.',data:ap,backgroundColor:'#d1d5db88',borderColor:'#9ca3af',borderWidth:1,borderRadius:4});
+  charts['alerts']=new Chart(document.getElementById('ch-alerts'),{
+    type:'bar',data:{labels:al,datasets:ds},
+    options:{indexAxis:'y',plugins:{legend:{display:prevRows.length>0,position:'top',labels:{boxWidth:12,font:{size:11}}}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}
+  });
+
+  // Obligations par famille
+  if(oblRows.length&&OC.famille){
+    const fams=[...new Set(oblRows.map(r=>(r[OC.famille]||'').trim()).filter(Boolean))].sort();
+    let oh=`<div class="tbl-wrap"><div class="tbl-head"><span class="tbl-title">Obligations par famille</span><span class="tbl-sub">${oblRows.length} obligations actives</span></div>
+    <table id="tbl-obl-g"><thead><tr>${thS('tbl-obl-g',0,'Famille')}${thS('tbl-obl-g',1,'En retard')}${thS('tbl-obl-g',2,'À faire')}${thS('tbl-obl-g',3,'Total')}</tr></thead><tbody>`;
+    fams.forEach(fam=>{
+      const fr=oblRows.filter(r=>(r[OC.famille]||'').trim()===fam);
+      const rr=fr.filter(r=>oblEtat(r)==='retard').length,ra=fr.filter(r=>oblEtat(r)==='afaire').length;
+      oh+=`<tr><td><strong>${fam}</strong></td><td>${rr>0?`<span class="b-crit">${rr}</span>`:'—'}</td><td>${ra>0?`<span class="b-warn">${ra}</span>`:'—'}</td><td>${fr.length}</td></tr>`;
+    });
+    oh+=`</tbody></table></div>`;
+    document.getElementById('obl-global').innerHTML=oh;
   }
 }
+
+// ── PAR ÉQUIPE ─────────────────────────────────────────────────────────────────
+function buildEquipes(){
+  const hasObl=oblRows.length>0&&OC.coach;
+  let html='';
+  for(const tribe of(CFG.tribes||[])){
+    const allM=[tribe.leader,...(tribe.standalone||[]),...(tribe.squads||[]).flatMap(sq=>squadMembers(sq))];
+    const tr=curRows.filter(r=>allM.includes(r[C.coach])),pr=prevRows.filter(r=>allM.includes(r[C.coach]));
+    const tD=tr.length,pD=pr.length;
+    const tI=tr.filter(r=>v(r,'completion')<100).length,pI=pr.filter(r=>v(r,'completion')<100).length;
+    const tB=tr.filter(r=>v(r,'bankDeco')>0).length,pB=pr.filter(r=>v(r,'bankDeco')>0).length;
+    const tF=tr.filter(r=>ALERTS.some(a=>isAlert(r,a))).length,pF=pr.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+
+    html+=`<div class="cards" style="margin-bottom:8px">
+      <div class="card blue" style="border-left-color:#6366f1"><div class="card-value">${tD}</div><div class="card-label">Dossiers — ${tribe.name} (${tribe.leader.split(' ')[0]})</div><div class="card-delta">${pr.length?delta(tD,pD,'down'):''}</div></div>
+      <div class="card ${tI?'orange':'green'}"><div class="card-value">${tI}</div><div class="card-label">Profils &lt;100%</div><div class="card-delta">${pr.length?delta(tI,pI,'up'):''}</div></div>
+      <div class="card ${tB?'red':'green'}"><div class="card-value">${tB}</div><div class="card-label">Clients avec ≥1 banque déco</div><div class="card-delta">${pr.length?delta(tB,pB,'up'):''}</div></div>
+      <div class="card ${tF?'red':'green'}"><div class="card-value">${tF}</div><div class="card-label">Clients avec alertes flux</div><div class="card-delta">${pr.length?delta(tF,pF,'up'):''}</div></div>
+    </div>`;
+
+    const oblCols=hasObl?`${thS('tbl-squads',6,'Obl. en retard')}${thS('tbl-squads',7,'Obl. à faire')}`:'';
+    html+=`<div class="tbl-wrap" style="margin-bottom:20px"><div class="tbl-head"><span class="tbl-title">Détail par squad</span></div>
+    <table id="tbl-squads"><thead><tr><th>Squad</th>${thS('tbl-squads',1,'Dossiers')}${thS('tbl-squads',2,'Profil moy.')}${thS('tbl-squads',3,'&lt;100%')}${thS('tbl-squads',4,'Banques déco')}${thS('tbl-squads',5,'Alertes flux')}${prevRows.length?'<th>Δ flux</th>':''}${oblCols}</tr></thead><tbody>`;
+
+    function sqRow(lbl,color,meta,sR,pR){
+      const cnt=sR.length,avg=cnt?Math.round(sR.reduce((s,r)=>s+v(r,'completion'),0)/cnt):0;
+      const inc=sR.filter(r=>v(r,'completion')<100).length,bk=sR.filter(r=>v(r,'bankDeco')>0).length;
+      const fl=sR.filter(r=>ALERTS.some(a=>isAlert(r,a))).length,pFl=pR.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+      let ot='';
+      if(hasObl){const o=oblForCoaches([...new Set(sR.map(r=>r[C.coach]).filter(Boolean))]);ot=`<td>${o.retard>0?`<span class="b-crit">${o.retard}</span>`:'—'}</td><td>${o.afaire>0?`<span class="b-warn">${o.afaire}</span>`:'—'}</td>`;}
+      return`<tr><td><span class="squad-dot" style="background:${color}"></span><strong>${lbl}</strong>${meta}</td><td>${cnt}</td><td>${avg}%</td><td>${inc>0?`<span class="b-warn">${inc}</span>`:'—'}</td><td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td><td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}${ot}</tr>`;
+    }
+
+    for(const sq of(tribe.squads||[])) html+=sqRow(sq.name,sq.color,` <span style="font-size:11px;color:#9ca3af"> — ${sq.leader.split(' ')[0]} +${sq.members.length}</span>`,rowsForSquad(sq,curRows),rowsForSquad(sq,prevRows));
+    html+=sqRow(tribe.leader,'#6366f1',' <span style="font-size:11px;color:#9ca3af"> (tribe leader)</span>',rowsForCoach(tribe.leader,curRows),rowsForCoach(tribe.leader,prevRows));
+    for(const n of(tribe.standalone||[])) html+=sqRow(n,'#8b5cf6',' <span style="font-size:11px;color:#9ca3af"> (standalone)</span>',rowsForCoach(n,curRows),rowsForCoach(n,prevRows));
+    html+=`</tbody></table></div>`;
+
+    html+=`<div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#374151">Détail par coach dans chaque squad</div>`;
+    for(const sq of(tribe.squads||[])){
+      const qid='tbl-sq-'+sq.name.replace(/\s/g,'');
+      const qObl=hasObl?`${thS(qid,6,'Obl. en retard')}${thS(qid,7,'Obl. à faire')}`:'';
+      html+=`<div class="squad-section"><div class="squad-header" style="background:${sq.color}">
+        <span class="squad-dot" style="background:white;opacity:.6"></span>${sq.name}
+        <span class="squad-meta">${rowsForSquad(sq,curRows).length} dossiers · ${sq.leader.split(' ')[0]} (leader) + ${sq.members.map(m=>m.split(' ')[0]).join(', ')}</span>
+      </div><div class="squad-body"><table id="${qid}"><thead><tr>
+        <th>Coach</th>${thS(qid,1,'Dossiers')}${thS(qid,2,'Profil moy.')}${thS(qid,3,'&lt;100%')}${thS(qid,4,'Banques déco')}${thS(qid,5,'Alertes flux')}${prevRows.length?'<th>Δ flux</th>':''}${qObl}
+      </tr></thead><tbody>`;
+      for(const coach of squadMembers(sq)){
+        const cR=rowsForCoach(coach,curRows);if(!cR.length)continue;
+        const pR=rowsForCoach(coach,prevRows);
+        const cnt=cR.length,avg=Math.round(cR.reduce((s,r)=>s+v(r,'completion'),0)/cnt);
+        const inc=cR.filter(r=>v(r,'completion')<100).length,bk=cR.filter(r=>v(r,'bankDeco')>0).length;
+        const fl=cR.filter(r=>ALERTS.some(a=>isAlert(r,a))).length,pFl=pR.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+        let ot='';if(hasObl){const o=oblForCoach(coach);ot=`<td>${o.retard>0?`<span class="b-crit">${o.retard}</span>`:'—'}</td><td>${o.afaire>0?`<span class="b-warn">${o.afaire}</span>`:'—'}</td>`;}
+        html+=`<tr><td>${coach===sq.leader?'👑 ':'&nbsp;&nbsp;'}${coach}</td><td>${cnt}</td><td>${avg}%</td><td>${inc>0?`<span class="b-warn">${inc}</span>`:'—'}</td><td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td><td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}${ot}</tr>`;
+      }
+      html+=`</tbody></table></div></div>`;
+    }
+  }
+  document.getElementById('p-equipes').innerHTML=html;
+}
+
+// ── PAR COACH ──────────────────────────────────────────────────────────────────
+function buildCoaches(){
+  const hasObl=oblRows.length>0&&OC.coach;
+  const coaches=[...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))].sort();
+  const oblCols=hasObl?`${thS('tbl-ch',7,'Obl. en retard')}${thS('tbl-ch',8,'Obl. à faire')}`:'';
+  let html=`<div class="tbl-wrap"><div class="tbl-head"><span class="tbl-title">Récapitulatif par coach</span><span class="tbl-sub">${coaches.length} coachs</span></div>
+  <table id="tbl-ch"><thead><tr>${thS('tbl-ch',0,'Coach')}<th>Squad</th>${thS('tbl-ch',2,'Dossiers')}${thS('tbl-ch',3,'Profil moy.')}${thS('tbl-ch',4,'&lt;100%')}${thS('tbl-ch',5,'Banques déco')}${thS('tbl-ch',6,'Alertes flux')}${prevRows.length?'<th>Δ flux</th>':''}${oblCols}</tr></thead><tbody>`;
+  coaches.forEach(coach=>{
+    const rows=rowsForCoach(coach,curRows),pRows=rowsForCoach(coach,prevRows);
+    const cnt=rows.length,avg=Math.round(rows.reduce((s,r)=>s+v(r,'completion'),0)/cnt);
+    const inc=rows.filter(r=>v(r,'completion')<100).length,bk=rows.filter(r=>v(r,'bankDeco')>0).length;
+    const fl=rows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length,pFl=pRows.filter(r=>ALERTS.some(a=>isAlert(r,a))).length;
+    const sq=coachSquad(coach);
+    let ot='';if(hasObl){const o=oblForCoach(coach);ot=`<td>${o.retard>0?`<span class="b-crit">${o.retard}</span>`:'—'}</td><td>${o.afaire>0?`<span class="b-warn">${o.afaire}</span>`:'—'}</td>`;}
+    html+=`<tr><td><strong>${coach}</strong></td><td><span class="squad-dot" style="background:${sq.color}"></span>${sq.squad}</td><td>${cnt}</td><td>${avg}%</td><td>${inc>0?`<span class="b-warn">${inc}</span>`:'—'}</td><td>${bk>0?`<span class="b-crit">${bk}</span>`:'—'}</td><td>${fl>0?`<span class="b-crit">${fl}</span>`:'—'}</td>${prevRows.length?`<td>${delta(fl,pFl,'up')}</td>`:''}${ot}</tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  document.getElementById('p-coaches').innerHTML=html;
+}
+
+// ── FILTER HELPERS ─────────────────────────────────────────────────────────────
+function coachFilterBar(sel,src,fn){
+  const coaches=['Tous les coachs',...[...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))].sort()];
+  return`<div class="filter-bar"><select class="fsel" id="${sel}" onchange="${fn}()">${coaches.map(c=>`<option>${c}</option>`).join('')}</select><input class="fsearch" type="text" id="${src}" placeholder="Rechercher un client…" oninput="${fn}()"></div>`;
+}
+function applyTableFilter(cls,selId,srcId){
+  const cf=document.getElementById(selId)?.value||'Tous les coachs';
+  const cs=(document.getElementById(srcId)?.value||'').toLowerCase();
+  document.querySelectorAll('.'+cls).forEach(r=>{r.style.display=((cf==='Tous les coachs'||r.dataset.coach===cf)&&(!cs||r.dataset.co.includes(cs)))?'':'none';});
+}
+
+// ── PROFIL ─────────────────────────────────────────────────────────────────────
+function buildProfil(){
+  const incomp=curRows.filter(r=>v(r,'completion')<100).sort((a,b)=>v(a,'completion')-v(b,'completion'));
+  let html=coachFilterBar('pf-coach','pf-search','filterProfil');
+  html+=`<div class="alert-group"><div class="alert-group-title">Profils incomplets (&lt;100%) <span class="alert-cnt">${incomp.length}</span></div>
+  <div class="tbl-wrap"><table id="tbl-incomp"><thead><tr>${thS('tbl-incomp',0,'Coach')}${thS('tbl-incomp',1,'Client')}${thS('tbl-incomp',2,'%')}${prevRows.length?'<th>Sem. préc.</th><th>Statut</th>':''}<th>Lien</th></tr></thead><tbody>`;
+  incomp.forEach(row=>{
+    const pr=prevOf(row),cur=v(row,'completion'),prev=pr?v(pr,'completion'):null;
+    let st='';if(prev!==null)st=prev<100&&cur<100?'<span class="b-persist">⚠ Persistant</span>':'<span class="b-warn">Nouveau</span>';
+    html+=`<tr class="pf-row" data-coach="${row[C.coach]}" data-co="${(row[C.company]||'').toLowerCase()}"><td>${row[C.coach]}</td><td>${row[C.company]}</td><td><strong>${cur}%</strong></td>${prevRows.length?`<td>${prev!==null?prev+'%':'—'}</td><td>${st}</td>`:''}<td><a class="link" href="${row[C.url]}" target="_blank">→</a></td></tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  document.getElementById('p-profil').innerHTML=html;
+}
+function filterProfil(){applyTableFilter('pf-row','pf-coach','pf-search');}
+
+// ── BANQUES ────────────────────────────────────────────────────────────────────
+function buildBanques(){
+  const banks=curRows.filter(r=>v(r,'bankDeco')>0).sort((a,b)=>v(b,'bankDeco')-v(a,'bankDeco'));
+  let html=coachFilterBar('bk-coach','bk-search','filterBanques');
+  html+=`<div class="alert-group"><div class="alert-group-title">Clients avec ≥1 banque déconnectée depuis 30+ jours <span class="alert-cnt">${banks.length}</span>${prevRows.length?'<span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:8px">🔴 = persiste depuis sem. passée</span>':''}</div>
+  <div class="tbl-wrap"><table id="tbl-banks"><thead><tr>${thS('tbl-banks',0,'Coach')}${thS('tbl-banks',1,'Client')}${thS('tbl-banks',2,'Nb banques déco')}${prevRows.length?'<th>Sem. préc.</th><th>Statut</th>':''}<th>Lien</th></tr></thead><tbody>`;
+  banks.forEach(row=>{
+    const pr=prevOf(row),cur=v(row,'bankDeco'),prev=pr?v(pr,'bankDeco'):null;
+    let st='';if(prev!==null)st=prev>0&&cur>0?'<span class="b-persist">🔴 PERSISTANT</span>':'<span class="b-warn">Nouveau</span>';
+    html+=`<tr class="bk-row" data-coach="${row[C.coach]}" data-co="${(row[C.company]||'').toLowerCase()}"><td>${row[C.coach]}</td><td>${row[C.company]}</td><td><span class="b-crit">${cur}</span></td>${prevRows.length?`<td>${prev!==null?prev:'—'}</td><td>${st}</td>`:''}<td><a class="link" href="${row[C.url]}" target="_blank">→</a></td></tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  document.getElementById('p-banques').innerHTML=html;
+}
+function filterBanques(){applyTableFilter('bk-row','bk-coach','bk-search');}
+
+// ── ALERTES FLUX ───────────────────────────────────────────────────────────────
+function buildFlux(){
+  const coaches=['Tous les coachs',...[...new Set(curRows.map(r=>r[C.coach]).filter(Boolean))].sort()];
+  const alertCounts=ALERTS.map(a=>curRows.filter(r=>isAlert(r,a)).length);
+  let nav='<div class="flux-nav" id="flux-nav">';
+  ALERTS.forEach((a,i)=>{const cnt=alertCounts[i];const sh=a.label.length>22?a.label.slice(0,21)+'…':a.label;nav+=`<div class="${cnt>0?'flux-pill has-alert':'flux-pill'}" id="pill-${i}" onclick="scrollToFlux(${i})">${sh} <span class="pcount">${cnt}</span></div>`;});
+  nav+='</div>';
+  let html=nav+`<div class="filter-bar"><select class="fsel" id="fc-coach" onchange="filterFlux()">${coaches.map(c=>`<option>${c}</option>`).join('')}</select><input class="fsearch" type="text" id="fc-search" placeholder="Rechercher un client…" oninput="filterFlux()"></div><div id="flux-body">`;
+  ALERTS.forEach((a,i)=>{
+    const aR=curRows.filter(r=>isAlert(r,a)).sort((x,y)=>v(y,a.key)-v(x,a.key));
+    const tid=`tfl-${i}`;
+    if(!aR.length){html+=`<div class="alert-group" id="fs-${i}"><div class="alert-group-title alert-zero">✓ ${a.label} ${a.op==='=='?'=':a.op} ${a.t} <span style="background:#f0fdf4;color:#10b981;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700">0</span></div></div>`;return;}
+    html+=`<div class="alert-group" id="fs-${i}" data-ai="${i}"><div class="alert-group-title">${a.label} ${a.op==='=='?'=':a.op} ${a.t} <span class="alert-cnt afc">${aR.length}</span></div>
+    <div class="tbl-wrap"><table id="${tid}"><thead><tr>${thS(tid,0,'Coach')}${thS(tid,1,'Client')}${thS(tid,2,'Valeur')}${prevRows.length?'<th>Sem. préc.</th><th>Δ</th><th>Statut</th>':''}<th>Lien</th></tr></thead><tbody>`;
+    aR.forEach(row=>{
+      const cur=v(row,a.key),pr=prevOf(row),prev=pr?v(pr,a.key):null;
+      let st='';if(prev!==null){const wa=pr&&isAlert(pr,a);st=wa?'<span class="b-persist">⚠ Persistant</span>':'<span class="b-warn">Nouveau</span>';}
+      html+=`<tr class="fr" data-coach="${row[C.coach]}" data-co="${(row[C.company]||'').toLowerCase()}"><td>${row[C.coach]}</td><td>${row[C.company]}</td><td><strong>${cur}</strong></td>${prevRows.length?`<td>${prev!==null?prev:'—'}</td><td>${prev!==null?delta(cur,prev,'up'):'—'}</td><td>${st}</td>`:''}<td><a class="link" href="${row[C.url]}" target="_blank">→</a></td></tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  });
+  html+=`</div>`;
+  document.getElementById('p-flux').innerHTML=html;
+  const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{const i=e.target.id.replace('fs-','');const p=document.getElementById('pill-'+i);if(!p)return;if(e.isIntersecting){document.querySelectorAll('.flux-pill').forEach(x=>x.classList.remove('active'));p.classList.add('active');p.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}});},{rootMargin:'-20% 0px -70% 0px',threshold:0});
+  document.querySelectorAll('[id^="fs-"]').forEach(el=>obs.observe(el));
+}
+function scrollToFlux(i){const el=document.getElementById('fs-'+i);if(!el)return;window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-120,behavior:'smooth'});}
+function filterFlux(){
+  const cf=document.getElementById('fc-coach').value,cs=document.getElementById('fc-search').value.toLowerCase();
+  document.querySelectorAll('.fr').forEach(r=>{r.style.display=((cf==='Tous les coachs'||r.dataset.coach===cf)&&(!cs||r.dataset.co.includes(cs)))?'':'none';});
+  document.querySelectorAll('.alert-group[data-ai]').forEach(g=>{const vis=g.querySelectorAll('.fr:not([style*="display: none"])').length;const b=g.querySelector('.afc');if(b)b.textContent=vis;});
+}
+
+// ── OBLIGATIONS ────────────────────────────────────────────────────────────────
+function buildObligations(){
+  if(!oblRows.length){document.getElementById('p-obl').innerHTML=`<p class="obl-no-data">Aucun fichier obligations chargé.</p>`;return;}
+  const coaches=['Tous les coachs',...[...new Set(oblRows.map(r=>(r[OC.coach]||'').trim()).filter(Boolean))].sort()];
+  const fams=['Toutes les familles',...[...new Set(oblRows.map(r=>(r[OC.famille]||'').trim()).filter(Boolean))].sort()];
+  const etats=['Tous les états','En retard','À faire'];
+  let html=`<div class="filter-bar">
+    <select class="fsel" id="ob-coach" onchange="filterObl()">${coaches.map(c=>`<option>${c}</option>`).join('')}</select>
+    <select class="fsel" id="ob-fam"   onchange="filterObl()">${fams.map(f=>`<option>${f}</option>`).join('')}</select>
+    <select class="fsel" id="ob-etat"  onchange="filterObl()">${etats.map(e=>`<option>${e}</option>`).join('')}</select>
+    <input class="fsearch" type="text" id="ob-search" placeholder="Rechercher un client…" oninput="filterObl()">
+    <input class="fsearch" type="date" id="ob-date-from" title="Échéance à partir de" oninput="filterObl()">
+    <input class="fsearch" type="date" id="ob-date-to"   title="Échéance jusqu'au"    oninput="filterObl()">
+  </div>`;
+  const cols=[OC.famille,OC.declaration,OC.entreprise,OC.etat,OC.echeance,OC.statut,OC.coach].filter(Boolean);
+  html+=`<div class="tbl-wrap"><div class="tbl-head"><span class="tbl-title">Toutes les obligations</span><span class="tbl-sub" id="ob-count">${oblRows.length} obligation(s)</span></div>
+  <table id="tbl-obl"><thead><tr>`;
+  cols.forEach((col,i)=>{html+=thS('tbl-obl',i,col);});
+  html+=`</tr></thead><tbody>`;
+  oblRows.forEach(row=>{
+    const eV=oblEtat(row),eD=(row[OC.etat]||'').trim();
+    const eBadge=eV==='retard'?`<span class="b-crit">${eD}</span>`:`<span class="b-warn">${eD}</span>`;
+    html+=`<tr class="ob-row" data-coach="${(row[OC.coach]||'').trim()}" data-fam="${(row[OC.famille]||'').trim()}" data-etat="${eV}" data-co="${(row[OC.entreprise]||'').toLowerCase()}" data-ech="${(row[OC.echeance]||'').trim()}">`;
+    cols.forEach(col=>{html+=`<td>${col===OC.etat?eBadge:(row[col]||'—')}</td>`;});
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  document.getElementById('p-obl').innerHTML=html;
+}
+function filterObl(){
+  const coach=document.getElementById('ob-coach')?.value||'Tous les coachs';
+  const fam=document.getElementById('ob-fam')?.value||'Toutes les familles';
+  const etat=document.getElementById('ob-etat')?.value||'Tous les états';
+  const search=(document.getElementById('ob-search')?.value||'').toLowerCase();
+  const dfrom=document.getElementById('ob-date-from')?.value||'';
+  const dto=document.getElementById('ob-date-to')?.value||'';
+  let vis=0;
+  document.querySelectorAll('.ob-row').forEach(r=>{
+    let show=true;
+    if(coach!=='Tous les coachs'&&r.dataset.coach!==coach)show=false;
+    if(fam!=='Toutes les familles'&&r.dataset.fam!==fam)show=false;
+    if(etat==='En retard'&&r.dataset.etat!=='retard')show=false;
+    if(etat==='À faire'&&r.dataset.etat!=='afaire')show=false;
+    if(search&&!r.dataset.co.includes(search))show=false;
+    if(dfrom&&r.dataset.ech&&r.dataset.ech<dfrom)show=false;
+    if(dto&&r.dataset.ech&&r.dataset.ech>dto)show=false;
+    r.style.display=show?'':'none';if(show)vis++;
+  });
+  const cnt=document.getElementById('ob-count');if(cnt)cnt.textContent=`${vis} obligation(s)`;
+}
+
+// ── DRAG & DROP ────────────────────────────────────────────────────────────────
+['card-cur','card-prev','card-obl','card-cfg'].forEach(id=>{
+  const card=document.getElementById(id);if(!card)return;
+  card.addEventListener('dragover',e=>{e.preventDefault();card.classList.add('dragover');});
+  card.addEventListener('dragleave',()=>card.classList.remove('dragover'));
+  card.addEventListener('drop',e=>{
+    e.preventDefault();card.classList.remove('dragover');
+    const file=e.dataTransfer.files[0];if(!file)return;
+    if(id==='card-cfg'){const fi=document.getElementById('f-cfg');const dt=new DataTransfer();dt.items.add(file);fi.files=dt.files;loadConfig(fi);return;}
+    const type=id==='card-cur'?'cur':id==='card-prev'?'prev':'obl';
+    const fi=document.getElementById('f-'+type);const dt=new DataTransfer();dt.items.add(file);fi.files=dt.files;loadCSV(type,fi);
+  });
+});
 </script>
 </body>
 </html>
